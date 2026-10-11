@@ -18,7 +18,7 @@ Owner: Aaron (network engineer). Prefers direct, technically precise communicati
 - `app.js` — `STATIONS` data, `TRACKS` geometry, map setup, pixel-offset track rendering, alert polling (5 min)
 - `functions/api/elevators.js` — `GET /api/elevators`; proxies CTA Customer Alerts API
   (`accessibility=TRUE&activeonly=TRUE`, JSON), normalizes to `{updated, alerts:[{id,headline,short,stations:[{id,name}]}]}`, 120s cache
-- `README.md` — deploy commands (`wrangler pages deploy . --project-name cta-access-map`)
+- `README.md` — deploy and dev commands (`npx wrangler pages deploy`, `npx wrangler pages dev`)
 
 CDNs: Leaflet 1.9.4 (cdnjs), leaflet-polylinedecorator 1.6.0 (unpkg), Tabler icons webfont (jsdelivr).
 Basemap: Stadia Maps alidade_smooth / alidade_smooth_dark (CARTO now requires an API key). Production
