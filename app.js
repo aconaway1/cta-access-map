@@ -1,0 +1,153 @@
+// Loop L access map. Coordinates are approximate station/track positions.
+const COLOR = {red:'#C60C30',blue:'#00A1DE',brown:'#62361B',green:'#009B3A',orange:'#F9461C',pink:'#E27EA6',purple:'#522398'};
+const LINE_NAME = {red:'Red',blue:'Blue',brown:'Brown',green:'Green',orange:'Orange',pink:'Pink',purple:'Purple'};
+
+// k: y = elevator, n = stairs only, c = closed. id = CTA station (map) ID used by the alerts feed.
+// match = station name as the alerts feed spells it, only where the name is unique systemwide.
+const STATIONS = [
+  {id:40380,name:'Clark/Lake',match:'Clark/Lake',ll:[41.8857,-87.6309],k:'y',lines:['blue','brown','green','orange','pink','purple'],side:'right',note:'Elevated platforms and Blue Line subway both have elevators.'},
+  {id:40260,name:'State/Lake',match:'State/Lake',ll:[41.8858,-87.6278],k:'c',lines:['brown','green','orange','pink','purple'],side:'right',note:'Closed since Jan. 5, 2026 for full rebuild; reopening expected 2029. Trains bypass it. Use Washington/Wabash or Clark/Lake.'},
+  {id:41660,name:'Lake (Red)',match:'Lake',ll:[41.8846,-87.6278],k:'y',lines:['red'],side:'right',note:'To transfer to the elevated lines while State/Lake is closed, CTA says to use Washington/Wabash.'},
+  {id:41700,name:'Washington/Wabash',match:'Washington/Wabash',ll:[41.8831,-87.6261],k:'y',lines:['brown','green','orange','pink','purple'],side:'right'},
+  {id:40680,name:'Adams/Wabash',match:'Adams/Wabash',ll:[41.8794,-87.6261],k:'n',lines:['brown','green','orange','pink','purple'],side:'right'},
+  {id:40850,name:'Harold Washington Library',match:'Harold Washington Library-State/Van Buren',ll:[41.8768,-87.6281],k:'y',lines:['brown','orange','pink','purple'],side:'bottom'},
+  {id:40160,name:'LaSalle/Van Buren',match:'LaSalle/Van Buren',ll:[41.8768,-87.6318],k:'n',lines:['brown','orange','pink','purple'],side:'top'},
+  {id:40040,name:'Quincy',match:'Quincy',ll:[41.8786,-87.6338],k:'y',lines:['brown','orange','pink','purple'],side:'left'},
+  {id:40730,name:'Washington/Wells',match:'Washington/Wells',ll:[41.8829,-87.6338],k:'y',lines:['brown','orange','pink','purple'],side:'left'},
+  {id:40560,name:'Jackson (Red)',ll:[41.8783,-87.6277],k:'y',lines:['red'],side:'right'},
+  {id:41090,name:'Monroe (Red)',ll:[41.8807,-87.6277],k:'n',lines:['red'],side:'right'},
+  {id:40370,name:'Washington (Blue)',ll:[41.8833,-87.6294],k:'n',lines:['blue'],side:'left'},
+  {id:40790,name:'Monroe (Blue)',ll:[41.8806,-87.6294],k:'n',lines:['blue'],side:'left'},
+  {id:40070,name:'Jackson (Blue)',ll:[41.8782,-87.6294],k:'y',lines:['blue'],side:'left'},
+  {id:41340,name:'LaSalle (Blue)',ll:[41.8757,-87.6317],k:'n',lines:['blue'],side:'bottom'},
+  {id:40430,name:'Clinton (Blue)',ll:[41.8756,-87.6407],k:'n',lines:['blue'],side:'bottom',note:'No elevator, steep stairs. For step-free access to Union Station, use Clinton on the Green/Pink.'},
+  {id:41160,name:'Clinton (Green/Pink)',ll:[41.8856,-87.6416],k:'y',lines:['green','pink'],side:'top'},
+  {id:41510,name:'Morgan',match:'Morgan',ll:[41.8856,-87.6524],k:'y',lines:['green','pink'],side:'top'},
+  {id:40170,name:'Ashland (Green/Pink)',ll:[41.8853,-87.6667],k:'y',lines:['green','pink'],side:'top'},
+  {id:40350,name:'UIC-Halsted',match:'UIC-Halsted',ll:[41.8757,-87.6492],k:'y',lines:['blue'],side:'bottom'},
+];
+
+// Track geometry. d = pixel offset to the right of the direction of travel; a = draw direction arrows.
+const NW=[41.8857,-87.6338], NE=[41.8857,-87.6261], SE=[41.8768,-87.6261], SW=[41.8768,-87.6338];
+const ROOSEVELT=[41.8674,-87.6262], WEST=[41.8857,-87.6720], NORTH=[41.8925,-87.6339];
+const CW=[NW,NE,SE,SW,NW], CCW=[NW,SW,SE,NE,NW];
+const TRACKS = [
+  {c:'red', p:[[41.8925,-87.6282],[41.8673,-87.6271]], dash:true},
+  {c:'blue', p:[[41.8756,-87.6720],[41.8756,-87.6440]]},
+  {c:'blue', p:[[41.8756,-87.6440],[41.8757,-87.6294],[41.8857,-87.6294],[41.8857,-87.6390],[41.8890,-87.6440]], dash:true},
+  {c:'brown', p:[NORTH,NW], d:4},
+  {c:'purple', p:[NORTH,NW], d:-14},
+  {c:'pink', p:[WEST,NW], d:4},
+  {c:'orange', p:[SE,ROOSEVELT], d:9},
+  {c:'green', p:[WEST,NW,NE,SE,ROOSEVELT], d:-10, a:true},
+  {c:'green', p:[ROOSEVELT,SE,NE,NW,WEST], d:15, a:true},
+  {c:'brown', p:CCW, d:4, a:true},
+  {c:'pink', p:CW, d:4, a:true},
+  {c:'orange', p:CW, d:9, a:true},
+  {c:'purple', p:CW, d:14, a:true},
+];
+
+const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+const map = L.map('map',{zoomControl:true}).setView([41.8810,-87.6420],15);
+L.tileLayer(`https://{s}.basemaps.cartocdn.com/${dark?'dark_all':'light_all'}/{z}/{x}/{y}{r}.png`,{
+  maxZoom:19, subdomains:'abcd',
+  attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+}).addTo(map);
+
+// Offset a path by d screen pixels (miter joins), at the current zoom.
+function offsetPath(latlngs, d){
+  if(!d) return latlngs.map(p=>L.latLng(p));
+  const pts = latlngs.map(p=>map.latLngToLayerPoint(L.latLng(p)));
+  const n = pts.length, closed = pts[0].equals(pts[n-1]);
+  const nrm = (a,b)=>{const dx=b.x-a.x, dy=b.y-a.y, L2=Math.hypot(dx,dy)||1; return [-dy/L2, dx/L2];};
+  return pts.map((pt,i)=>{
+    let pr = pts[i-1], nx = pts[i+1];
+    if(closed){ if(i===0) pr = pts[n-2]; if(i===n-1) nx = pts[1]; }
+    let a = pr ? nrm(pr,pt) : null, b = nx ? nrm(pt,nx) : null;
+    a = a || b; b = b || a;
+    let mx = a[0]+b[0], my = a[1]+b[1]; const ml = Math.hypot(mx,my)||1; mx/=ml; my/=ml;
+    const k = d / ((mx*a[0]+my*a[1]) || 1);
+    return map.layerPointToLatLng(L.point(pt.x+mx*k, pt.y+my*k));
+  });
+}
+
+const trackLayer = L.layerGroup().addTo(map);
+function drawTracks(){
+  trackLayer.clearLayers();
+  // Subways first so the elevated lines draw on top.
+  [...TRACKS].sort((x,y)=>(y.dash?1:0)-(x.dash?1:0)).forEach(t=>{
+    const ll = offsetPath(t.p, t.d||0);
+    const line = L.polyline(ll,{color:COLOR[t.c], weight:4, opacity:t.dash?0.8:0.95, dashArray:t.dash?'8 6':null, lineJoin:'round', interactive:false});
+    trackLayer.addLayer(line);
+    if(t.a && L.polylineDecorator){
+      trackLayer.addLayer(L.polylineDecorator(line,{patterns:[{offset:30, repeat:70,
+        symbol:L.Symbol.arrowHead({pixelSize:8, polygon:true, pathOptions:{color:COLOR[t.c], fillColor:COLOR[t.c], fillOpacity:1, weight:1, stroke:true}})}]}));
+    }
+  });
+}
+map.on('zoomend', drawTracks);
+drawTracks();
+
+const ICON = {y:'ti-elevator', n:'ti-stairs', c:'ti-barrier-block'};
+const STATUS = {y:'Elevator access', n:'No elevator: stairs only', c:'Closed for reconstruction'};
+let ALERTS = [];
+const markers = [];
+
+function alertsFor(s){
+  const norm = x => String(x||'').toLowerCase().replace(/\s+/g,'');
+  return ALERTS.filter(a => a.stations.some(x => String(x.id)===String(s.id) || (s.match && norm(x.name)===norm(s.match))));
+}
+
+function iconFor(s){
+  const out = s.k==='y' && alertsFor(s).length > 0;
+  return L.divIcon({className:'stn', iconSize:[24,24], iconAnchor:[12,12],
+    html:`<span class="dot ${s.k}${out?' alert':''}"><i class="ti ${ICON[s.k]}"></i></span>`});
+}
+
+function popupFor(s){
+  const chips = s.lines.map(l=>`<span class="chip${l==='pink'?' lt':''}" style="--c:${COLOR[l]}">${LINE_NAME[l]}</span>`).join('');
+  const al = alertsFor(s).map(a=>`<div class="al"><b>${esc(a.headline)}</b>${a.short?`<br>${esc(a.short)}`:''}</div>`).join('');
+  return `<div class="pop"><h3>${esc(s.name)}</h3><div class="chips">${chips}</div>
+    <div class="st ${s.k}">${STATUS[s.k]}</div>${s.note?`<div>${esc(s.note)}</div>`:''}${al}</div>`;
+}
+function esc(t){return String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+STATIONS.forEach(s=>{
+  const m = L.marker(s.ll,{icon:iconFor(s), title:s.name, zIndexOffset:1000}).addTo(map);
+  m.bindPopup(()=>popupFor(s));
+  const dir = s.side||'right';
+  m.bindTooltip(s.name,{permanent:true, direction:dir, className:'lbl', offset: dir==='left'?[-12,0]:dir==='right'?[12,0]:dir==='top'?[0,-12]:[0,12]});
+  markers.push({s,m});
+});
+
+function updateLabels(){
+  const show = map.getZoom() >= 16;
+  markers.forEach(({m})=> show ? m.openTooltip() : m.closeTooltip());
+}
+map.on('zoomend', updateLabels);
+updateLabels();
+
+async function loadAlerts(){
+  const el = document.getElementById('status');
+  try{
+    const r = await fetch('/api/elevators',{cache:'no-store'});
+    if(!r.ok) throw new Error(r.status);
+    const j = await r.json();
+    ALERTS = j.alerts || [];
+    markers.forEach(({s,m})=> m.setIcon(iconFor(s)));
+    const hits = markers.filter(({s})=>s.k==='y' && alertsFor(s).length).map(({s})=>s.name);
+    const t = new Date(j.updated||Date.now()).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'});
+    el.textContent = hits.length ? `Elevator alerts at ${t}: ${hits.join(', ')}.` : `No elevator alerts on this map as of ${t}.`;
+  }catch(e){
+    el.textContent = 'Live elevator alerts unavailable. Check transitchicago.com before you travel.';
+  }
+}
+loadAlerts();
+setInterval(loadAlerts, 5*60*1000);
+
+const panel = document.getElementById('panel');
+document.getElementById('toggle').addEventListener('click', e=>{
+  const c = panel.classList.toggle('collapsed');
+  e.currentTarget.setAttribute('aria-expanded', String(!c));
+});
+if(innerWidth < 600) panel.classList.add('collapsed');
