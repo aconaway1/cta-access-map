@@ -21,22 +21,30 @@ Owner: Aaron (network engineer). Prefers direct, technically precise communicati
 - `README.md` — deploy commands (`wrangler pages deploy . --project-name cta-access-map`)
 
 CDNs: Leaflet 1.9.4 (cdnjs), leaflet-polylinedecorator 1.6.0 (unpkg), Tabler icons webfont (jsdelivr).
-Basemap: CARTO light_all / dark_all.
+Basemap: Stadia Maps alidade_smooth / alidade_smooth_dark (CARTO now requires an API key). Production
+needs the pages.dev domain registered in the Stadia dashboard. `wrangler.toml` holds name, output dir, compat date.
 
-## Status: written, never run
+## Status (2026-10-11): runs locally, not yet deployed
 
-The code was built in a sandbox with no access to CTA or tile servers. Nothing has been tested in a
-browser or deployed. First tasks:
+Tested with `npx wrangler pages dev` + headless Chromium (Playwright's cached build; the Chrome extension
+wasn't connected). No console errors or failed requests, light and dark.
 
-1. Deploy (or `wrangler pages dev .`) and confirm the map, tracks, arrows and markers render.
-2. Hit `/api/elevators` and confirm the CTA response shape matches what the function expects:
-   `CTAAlerts.Alert[]` → `ImpactedService.Service[]` with `ServiceType === 'T'`, `ServiceId`, `ServiceName`.
-   `Alert` and `Service` may be a single object instead of an array; the `arr()` helper handles that.
-3. **Verify the CTA station map IDs in `STATIONS`** — they were written from memory, not looked up.
-   Stations without a `match` name (Jackson, Monroe, Washington, LaSalle Blue, both Clintons, Ashland)
-   depend entirely on the IDs. Cross-check against the CTA "L" stops dataset on data.cityofchicago.org
-   or the alerts feed itself.
-4. Check that the label `side` placements don't collide at zoom 16+.
+- `/api/elevators` verified against the live feed: shape matches (`CTAAlerts.Alert[]` →
+  `ImpactedService.Service[]`, `ServiceType` is `T`/`R`/`B`, `T` ServiceId = station map ID as a string).
+- All 20 station map IDs verified against the city L stops dataset (`8pix-ypme`); its `ada` flag agrees
+  with every `k`. Feed/dataset name for Quincy is "Quincy/Wells" (match fixed).
+- Labels: no marker/label overlaps at zoom 16–17.
+- Fixed after first run: basemap (CARTO → Stadia), zoom control moved top-right (panel covered it),
+  Red Line straightened onto State, initial view via fitBounds (Loop-only on phones).
+
+Known, not fixed:
+- Brown and Purple have poor contrast on the dark basemap (consider a light casing in dark mode).
+- West of the Loop, Pink (d:4, south of Lake) sits ~14px from Green (north) though they share track;
+  the offsets are tuned for the Loop where Brown sits between them.
+- Static files are served from the repo root, so README/CLAUDE.md/wrangler.toml get deployed too.
+  Move the site into `public/` before the systemwide work.
+
+Long-term goal: systemwide CTA rail accessibility map (trains only, no buses).
 
 ## Accessibility data (as of Oct 2026, researched in chat)
 

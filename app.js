@@ -12,7 +12,7 @@ const STATIONS = [
   {id:40680,name:'Adams/Wabash',match:'Adams/Wabash',ll:[41.8794,-87.6261],k:'n',lines:['brown','green','orange','pink','purple'],side:'right'},
   {id:40850,name:'Harold Washington Library',match:'Harold Washington Library-State/Van Buren',ll:[41.8768,-87.6281],k:'y',lines:['brown','orange','pink','purple'],side:'bottom'},
   {id:40160,name:'LaSalle/Van Buren',match:'LaSalle/Van Buren',ll:[41.8768,-87.6318],k:'n',lines:['brown','orange','pink','purple'],side:'top'},
-  {id:40040,name:'Quincy',match:'Quincy',ll:[41.8786,-87.6338],k:'y',lines:['brown','orange','pink','purple'],side:'left'},
+  {id:40040,name:'Quincy',match:'Quincy/Wells',ll:[41.8786,-87.6338],k:'y',lines:['brown','orange','pink','purple'],side:'left'},
   {id:40730,name:'Washington/Wells',match:'Washington/Wells',ll:[41.8829,-87.6338],k:'y',lines:['brown','orange','pink','purple'],side:'left'},
   {id:40560,name:'Jackson (Red)',ll:[41.8783,-87.6277],k:'y',lines:['red'],side:'right'},
   {id:41090,name:'Monroe (Red)',ll:[41.8807,-87.6277],k:'n',lines:['red'],side:'right'},
@@ -32,7 +32,7 @@ const NW=[41.8857,-87.6338], NE=[41.8857,-87.6261], SE=[41.8768,-87.6261], SW=[4
 const ROOSEVELT=[41.8674,-87.6262], WEST=[41.8857,-87.6720], NORTH=[41.8925,-87.6339];
 const CW=[NW,NE,SE,SW,NW], CCW=[NW,SW,SE,NE,NW];
 const TRACKS = [
-  {c:'red', p:[[41.8925,-87.6282],[41.8673,-87.6271]], dash:true},
+  {c:'red', p:[[41.8925,-87.6278],[41.8673,-87.6278]], dash:true},
   {c:'blue', p:[[41.8756,-87.6720],[41.8756,-87.6440]]},
   {c:'blue', p:[[41.8756,-87.6440],[41.8757,-87.6294],[41.8857,-87.6294],[41.8857,-87.6390],[41.8890,-87.6440]], dash:true},
   {c:'brown', p:[NORTH,NW], d:4},
@@ -48,10 +48,18 @@ const TRACKS = [
 ];
 
 const dark = matchMedia('(prefers-color-scheme: dark)').matches;
-const map = L.map('map',{zoomControl:true}).setView([41.8810,-87.6420],15);
-L.tileLayer(`https://{s}.basemaps.cartocdn.com/${dark?'dark_all':'light_all'}/{z}/{x}/{y}{r}.png`,{
-  maxZoom:19, subdomains:'abcd',
-  attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+// Zoom control top-right so the key panel doesn't cover it.
+const map = L.map('map',{zoomControl:false});
+L.control.zoom({position:'topright'}).addTo(map);
+// Leave room for the key panel (expanded on desktop, collapsed under 600px).
+// On phones, fit the Loop plus the stations just west of the river; all 20 stations would put it at zoom 13.
+const wide = innerWidth >= 600;
+map.fitBounds(L.latLngBounds(STATIONS.filter(s=>wide || s.ll[1] > -87.645).map(s=>s.ll)),
+  wide ? {paddingTopLeft:[400,40], paddingBottomRight:[40,40]} : {paddingTopLeft:[20,80], paddingBottomRight:[20,20]});
+// Stadia Maps: works on localhost without a key; production needs the domain registered in the Stadia dashboard.
+L.tileLayer(`https://tiles.stadiamaps.com/tiles/${dark?'alidade_smooth_dark':'alidade_smooth'}/{z}/{x}/{y}{r}.png`,{
+  maxZoom:20,
+  attribution:'&copy; <a href="https://stadiamaps.com/">Stadia Maps</a> &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 }).addTo(map);
 
 // Offset a path by d screen pixels (miter joins), at the current zoom.

@@ -15,8 +15,12 @@ functions/api/elevators.js   Pages Function proxying CTA accessibility alerts
 
 ```
 npx wrangler pages project create cta-access-map --production-branch main
-npx wrangler pages deploy . --project-name cta-access-map
+npx wrangler pages deploy
 ```
+
+`wrangler.toml` sets the project name, output directory (`.`) and compatibility date. Local dev: `npx wrangler pages dev` (serves on :8788 with the Function).
+
+**Basemap:** Stadia Maps (Alidade Smooth / Smooth Dark). Works on `localhost` with no key; for production, create a free Stadia account and add the `*.pages.dev` hostname under Authentication → domains, or tiles return 401. (CARTO's `light_all`/`dark_all` now return an "API KEY REQUIRED" placeholder, which is why it was replaced.)
 
 Or connect a GitHub repo in the Pages dashboard with build command empty and output directory `/`. The `functions/` folder is picked up automatically and serves `/api/elevators`.
 
