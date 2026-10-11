@@ -27,6 +27,21 @@ const STATIONS = [
   {id:40350,name:'UIC-Halsted',match:'UIC-Halsted',ll:[41.8757,-87.6492],k:'y',lines:['blue'],side:'bottom'},
 ];
 
+// Metra downtown stations, shown for transfers only (no accessibility data yet).
+// id = GTFS stop_id; ll and lines from Metra static GTFS (published 2026-10-03), except LaSalle Street:
+// its GTFS point sits on top of the CTA LaSalle stations, so it's moved south onto the platforms.
+const METRA_COLOR = {BNSF:['#29C233','#000'],HC:['#550E0C','#fff'],'MD-N':['#CC5500','#fff'],'MD-W':['#F1AD0E','#000'],
+  ME:['#EB5C00','#fff'],NCS:['#9785BC','#fff'],RI:['#E02400','#fff'],SWS:['#0042A8','#fff'],
+  'UP-N':['#008000','#fff'],'UP-NW':['#FFE600','#000'],'UP-W':['#FE8D81','#000']};
+const METRA = [
+  {id:'OTC',name:'Ogilvie (OTC)',ll:[41.8822,-87.6406],lines:['UP-N','UP-NW','UP-W'],side:'left'},
+  {id:'CUS',name:'Union Station',ll:[41.8789,-87.6389],lines:['BNSF','HC','MD-N','MD-W','NCS','SWS'],side:'left'},
+  {id:'LSS',name:'LaSalle Street',ll:[41.8745,-87.6322],lines:['RI'],side:'left'},
+  {id:'MILLENNIUM',name:'Millennium',ll:[41.8842,-87.6231],lines:['ME'],side:'right'},
+  {id:'VANBUREN',name:'Van Buren Street',ll:[41.8769,-87.6231],lines:['ME'],side:'right'},
+  {id:'MUSEUM',name:'Museum Campus/11th St.',ll:[41.8686,-87.6214],lines:['ME'],side:'right'},
+];
+
 // Track geometry. d = pixel offset to the right of the direction of travel; a = draw direction arrows.
 const NW=[41.8857,-87.6338], NE=[41.8857,-87.6261], SE=[41.8768,-87.6261], SW=[41.8768,-87.6338];
 const ROOSEVELT=[41.8674,-87.6262], WEST=[41.8857,-87.6720], NORTH=[41.8925,-87.6339];
@@ -52,8 +67,9 @@ const dark = matchMedia('(prefers-color-scheme: dark)').matches;
 const map = L.map('map',{zoomControl:false});
 L.control.zoom({position:'topright'}).addTo(map);
 // Leave room for the key panel (expanded on desktop, collapsed under 600px).
-// On phones, fit the Loop plus the stations just west of the river; all 20 stations would put it at zoom 13.
+// On phones, fit the Loop plus the stations just west of the river; all 20 would put it at zoom 13.
 const wide = innerWidth >= 600;
+// CTA stations only: the Metra Electric stations east of Wabash would drop a 1400px desktop from zoom 15 to 14.
 map.fitBounds(L.latLngBounds(STATIONS.filter(s=>wide || s.ll[1] > -87.645).map(s=>s.ll)),
   wide ? {paddingTopLeft:[400,40], paddingBottomRight:[40,40]} : {paddingTopLeft:[20,80], paddingBottomRight:[20,20]});
 // Stadia Maps: works on localhost without a key; production needs the domain registered in the Stadia dashboard.
@@ -120,17 +136,29 @@ function popupFor(s){
 }
 function esc(t){return String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
-STATIONS.forEach(s=>{
-  const m = L.marker(s.ll,{icon:iconFor(s), title:s.name, zIndexOffset:1000}).addTo(map);
-  m.bindPopup(()=>popupFor(s));
+function metraPopup(s){
+  const chips = s.lines.map(l=>`<span class="chip" style="--c:${METRA_COLOR[l][0]};color:${METRA_COLOR[l][1]}">${l}</span>`).join('');
+  return `<div class="pop"><h3>${esc(s.name)}</h3><div class="chips">${chips}</div>
+    <div>Metra station. Accessibility isn't shown here yet; check metra.com before you travel.</div></div>`;
+}
+
+// Station markers with name labels (labels shown at zoom 16+).
+const labeled = [];
+function addStation(s, icon, popup, z){
+  const m = L.marker(s.ll,{icon, title:s.name, zIndexOffset:z}).addTo(map);
+  m.bindPopup(popup);
   const dir = s.side||'right';
   m.bindTooltip(s.name,{permanent:true, direction:dir, className:'lbl', offset: dir==='left'?[-12,0]:dir==='right'?[12,0]:dir==='top'?[0,-12]:[0,12]});
-  markers.push({s,m});
-});
+  labeled.push(m);
+  return m;
+}
+STATIONS.forEach(s=> markers.push({s, m:addStation(s, iconFor(s), ()=>popupFor(s), 1000)}));
+const METRA_ICON = L.divIcon({className:'stn', iconSize:[24,24], iconAnchor:[12,12], html:'<span class="dot m"><i class="ti ti-train"></i></span>'});
+METRA.forEach(s=> addStation(s, METRA_ICON, ()=>metraPopup(s), 900));
 
 function updateLabels(){
   const show = map.getZoom() >= 16;
-  markers.forEach(({m})=> show ? m.openTooltip() : m.closeTooltip());
+  labeled.forEach(m=> show ? m.openTooltip() : m.closeTooltip());
 }
 map.on('zoomend', updateLabels);
 updateLabels();

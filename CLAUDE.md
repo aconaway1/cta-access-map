@@ -15,7 +15,7 @@ Owner: Aaron (network engineer). Prefers direct, technically precise communicati
 
 - `index.html` — page shell, collapsible key panel (auto-collapsed under 600px width)
 - `style.css` — light/dark via `prefers-color-scheme`
-- `app.js` — `STATIONS` data, `TRACKS` geometry, map setup, pixel-offset track rendering, alert polling (5 min), locate-me control (watchPosition; position stays client-side)
+- `app.js` — `STATIONS` data, `METRA` downtown stations, `TRACKS` geometry, map setup, pixel-offset track rendering, alert polling (5 min), locate-me control (watchPosition; position stays client-side)
 - `functions/api/elevators.js` — `GET /api/elevators`; proxies CTA Customer Alerts API
   (`accessibility=TRUE&activeonly=TRUE`, JSON), normalizes to `{updated, alerts:[{id,headline,short,stations:[{id,name}]}]}`, 120s cache
 - `README.md` — deploy and dev commands (`npx wrangler pages deploy`, `npx wrangler pages dev`)
@@ -76,6 +76,28 @@ spot-check on transitchicago.com station pages.
   offsets in layer-pixel space on every `zoomend`, and arrow decorators are rebuilt with it.
   Closed paths (first point == last) are handled for the rectangle.
 - Coordinates are approximate (hand-placed), good enough for a schematic, not survey-grade.
+
+## Metra (added 2026-10-11, no accessibility data yet)
+
+The six downtown Metra stations are shown as gray square markers for transfers: OTC, Union Station, LaSalle
+Street, Millennium, Van Buren Street, Museum Campus/11th St. No tracks, no accessibility status, no alerts.
+`ll`/`lines`/colors come from Metra static GTFS (published 2026-10-03), except LaSalle Street, which was moved
+south onto the platforms because its GTFS point sits on the CTA LaSalle stations. The opening view still fits
+CTA stations only (fitting the Metra Electric stations as well drops a 1400px desktop from zoom 15 to 14).
+
+Researched for the accessibility follow-up:
+- Static GTFS is public, no key: `https://schedules.metrarail.com/gtfs/schedule.zip` (check `published.txt`).
+  `stops.txt` has `wheelchair_boarding` (196 × `1`, 45 × `0` = unknown, none `2`). It disagrees with Metra's
+  elevator list (79th/Chatham, 87th/Woodruff, 103rd/Rosemoor, Grand/Cicero are `0` but have elevators;
+  Millennium is `1` while its only elevator is closed until winter 2026–27), so overrides are needed.
+- Realtime: `https://gtfspublic.metrarr.com/gtfs/public/alerts` (protobuf, 30s refresh), free key via
+  metra.com/developers, Bearer header or `api_token` param. Not yet requested. Unknown whether elevator
+  outages appear in it; there's no accessibility filter like CTA's.
+- License: serve data through our own host (the Function does), show last-updated time, state the app isn't
+  affiliated with Metra (footer note in the panel), no Metra trademarks.
+- Metra step-free access is mostly level/ramped platforms plus the accessible car's bridge plate, not elevators
+  (~30 elevator sites), so "accessible" needs its own key entries.
+- GTFS change notice (Oct 2026): trip/service/shape ID formats changing; stop_id not mentioned.
 
 ## Ideas not yet done
 

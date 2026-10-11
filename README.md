@@ -29,4 +29,5 @@ Or connect a GitHub repo in the Pages dashboard with build command empty and out
 - Live alerts come from CTA's Customer Alerts API (`accessibility=TRUE&activeonly=TRUE`), no key required. Stations are matched by CTA map ID, with name matching as a fallback. Verify the IDs in `app.js` against `/api/elevators` output after the first deploy.
 - Track offsets are recomputed in screen pixels on every zoom, so parallel Loop lines stay separated at any zoom level.
 - Station and track coordinates are approximate.
+- Downtown Metra stations are shown for transfers only (positions and lines from Metra static GTFS); no Metra accessibility data or alerts yet.
 - Accessibility status is hand-maintained in `STATIONS` (k: `y` elevator, `n` stairs, `c` closed). Update State/Lake when it reopens (expected 2029).
