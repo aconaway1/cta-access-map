@@ -15,7 +15,7 @@ Owner: Aaron (network engineer). Prefers direct, technically precise communicati
 
 - `index.html` — page shell, collapsible key panel (auto-collapsed under 600px width)
 - `style.css` — light/dark via `prefers-color-scheme`
-- `app.js` — `STATIONS` data, `TRACKS` geometry, map setup, pixel-offset track rendering, alert polling (5 min)
+- `app.js` — `STATIONS` data, `TRACKS` geometry, map setup, pixel-offset track rendering, alert polling (5 min), locate-me control (watchPosition; position stays client-side)
 - `functions/api/elevators.js` — `GET /api/elevators`; proxies CTA Customer Alerts API
   (`accessibility=TRUE&activeonly=TRUE`, JSON), normalizes to `{updated, alerts:[{id,headline,short,stations:[{id,name}]}]}`, 120s cache
 - `README.md` — deploy and dev commands (`npx wrangler pages deploy`, `npx wrangler pages dev`)

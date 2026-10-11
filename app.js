@@ -153,6 +153,49 @@ async function loadAlerts(){
 loadAlerts();
 setInterval(loadAlerts, 5*60*1000);
 
+// Locate me: browser geolocation (HTTPS or localhost only). The position never leaves the browser.
+// Own pane above the tracks (overlayPane 400, redrawn on every zoom) and below station markers (600).
+map.createPane('me').style.zIndex = 450;
+const me = L.layerGroup().addTo(map);
+let locating = false, centered = false, hasFix = false;
+const Locate = L.Control.extend({
+  options:{position:'topright'},
+  onAdd(){
+    const box = L.DomUtil.create('div','leaflet-bar leaflet-control');
+    const a = L.DomUtil.create('a','locate',box);
+    a.href = '#'; a.title = 'Show my location'; a.setAttribute('role','button'); a.setAttribute('aria-label','Show my location');
+    a.setAttribute('aria-pressed','false');
+    a.innerHTML = '<i class="ti ti-current-location"></i>';
+    L.DomEvent.disableClickPropagation(box);
+    L.DomEvent.on(a,'click',e=>{ L.DomEvent.preventDefault(e); setLocating(!locating); });
+    this._a = a;
+    return box;
+  }
+});
+const locate = new Locate().addTo(map);
+function setLocating(on){
+  locating = on;
+  locate._a.classList.toggle('on', on);
+  locate._a.setAttribute('aria-pressed', String(on));
+  if(on){ centered = false; hasFix = false; map.locate({watch:true, enableHighAccuracy:true, maximumAge:15000}); }
+  else { map.stopLocate(); me.clearLayers(); }
+}
+map.on('locationfound', e=>{
+  hasFix = true;
+  me.clearLayers();
+  me.addLayer(L.circle(e.latlng,{radius:e.accuracy, className:'me-acc', interactive:false, pane:'me'}));
+  me.addLayer(L.circleMarker(e.latlng,{radius:7, className:'me-dot', interactive:false, pane:'me'}));
+  // Center once per activation, then let the user pan freely while the dot follows.
+  if(!centered){ map.setView(e.latlng, Math.max(map.getZoom(),16)); centered = true; }
+});
+map.on('locationerror', e=>{
+  // GPS drops out briefly on phones; after a good fix, keep watching and mark the dot stale instead of giving up.
+  if(hasFix && e.code !== 1){ me.eachLayer(l=>l.getElement()?.classList.add('stale')); return; }
+  setLocating(false);
+  const why = e.code===1 ? 'Location permission was denied.' : e.code===3 ? 'Timed out finding your location.' : 'Your location is unavailable.';
+  L.popup({className:'loc-err'}).setLatLng(map.getCenter()).setContent(esc(why)).openOn(map);
+});
+
 const panel = document.getElementById('panel');
 document.getElementById('toggle').addEventListener('click', e=>{
   const c = panel.classList.toggle('collapsed');
