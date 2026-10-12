@@ -13,9 +13,10 @@ Owner: Aaron (network engineer). Prefers direct, technically precise communicati
 
 ## Files
 
-- `index.html` — page shell, collapsible key panel (auto-collapsed under 600px width)
-- `style.css` — light/dark via `prefers-color-scheme`
-- `app.js` — `STATIONS` data, `METRA` downtown stations, `TRACKS` geometry, map setup, pixel-offset track rendering, alert polling (5 min), locate-me control (watchPosition; position stays client-side)
+- `public/` — the static site (Pages output dir; `functions/` stays at the repo root):
+- `public/index.html` — page shell, collapsible key panel (auto-collapsed under 600px width)
+- `public/style.css` — light/dark via `prefers-color-scheme`
+- `public/app.js` — `STATIONS` data, `METRA` downtown stations, `TRACKS` geometry, map setup, pixel-offset track rendering, alert polling (5 min), locate-me control (watchPosition; position stays client-side)
 - `functions/api/elevators.js` — `GET /api/elevators`; proxies CTA Customer Alerts API
   (`accessibility=TRUE&activeonly=TRUE`, JSON), normalizes to `{updated, alerts:[{id,headline,short,stations:[{id,name}]}]}`, 120s cache
 - `README.md` — deploy and dev commands (`npx wrangler pages deploy`, `npx wrangler pages dev`)
@@ -25,6 +26,10 @@ Basemap: Stadia Maps alidade_smooth / alidade_smooth_dark (CARTO now requires an
 needs the pages.dev domain registered in the Stadia dashboard. `wrangler.toml` holds name, output dir, compat date.
 
 ## Status (2026-10-11): runs locally, not yet deployed
+
+GitHub: https://github.com/aconaway1/cta-access-map (public). First Cloudflare attempt was created as a
+Worker (Workers Builds → `npx wrangler deploy` → "Missing entry-point"); it must be a Pages project,
+output dir `public`.
 
 Tested with `npx wrangler pages dev` + headless Chromium (Playwright's cached build; the Chrome extension
 wasn't connected). No console errors or failed requests, light and dark.
@@ -41,8 +46,6 @@ Known, not fixed:
 - Brown and Purple have poor contrast on the dark basemap (consider a light casing in dark mode).
 - West of the Loop, Pink (d:4, south of Lake) sits ~14px from Green (north) though they share track;
   the offsets are tuned for the Loop where Brown sits between them.
-- Static files are served from the repo root, so README/CLAUDE.md/wrangler.toml get deployed too.
-  Move the site into `public/` before the systemwide work.
 
 Long-term goal: systemwide CTA rail accessibility map (trains only, no buses).
 
