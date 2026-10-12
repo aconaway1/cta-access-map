@@ -117,10 +117,16 @@ Researched for the accessibility follow-up:
   elevator list (79th/Chatham, 87th/Woodruff, 103rd/Rosemoor, Grand/Cicero are `0` but have elevators;
   Millennium is `1` while its only elevator is closed until winter 2026–27), so overrides are needed.
 - Realtime: `https://gtfspublic.metrarr.com/gtfs/public/alerts` (protobuf, 30s refresh), free key via
-  metra.com/developers, Bearer header or `api_token` param. Not yet requested. Unknown whether elevator
+  metra.com/developers, Bearer header or `api_token` param. Key requested 2026-10-11, awaiting approval.
+  Store it as a Worker secret (`npx wrangler secret put METRA_API_TOKEN`, or the dashboard), never in the
+  repo: it's public. Unknown whether elevator
   outages appear in it; there's no accessibility filter like CTA's.
-- License: serve data through our own host (the Function does), show last-updated time, state the app isn't
-  affiliated with Metra (footer note in the panel), no Metra trademarks.
+- License (read 2026-10-11; Metra can change it any time): serve data through our own host (the Worker does),
+  show last-updated time, state the app isn't affiliated with Metra (footer note in the panel), no Metra
+  trademarks/logo. Nothing about AI or how the app is built. Also: "must not modify or delete Data" (filtering
+  to elevator alerts is fine; show alert text verbatim and keep our own alternatives visibly separate; label any
+  `wheelchair_boarding` corrections as ours), and "must not state or imply that the data is accurate, complete,
+  or timely" (say "no elevator alerts in Metra's feed as of …", not "no outages").
 - Metra step-free access is mostly level/ramped platforms plus the accessible car's bridge plate, not elevators
   (~30 elevator sites), so "accessible" needs its own key entries.
 - GTFS change notice (Oct 2026): trip/service/shape ID formats changing; stop_id not mentioned.
