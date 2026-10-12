@@ -33,6 +33,9 @@ GitHub: https://github.com/aconaway1/cta-access-map (public). Connected to a Clo
 Workers Builds; live at https://cta-access-map.jaconaway1.workers.dev (domain registered with Stadia; tiles 401 on any other hostname).
 The first build failed ("Missing entry-point") because the repo was still Pages-shaped;
 converted to Workers static assets on 2026-10-11.
+If pushes stop triggering builds (no Cloudflare check on the GitHub commit), look for "This project is
+disconnected from your Git account" above the repo on the Worker's Settings → Builds page; fix via Manage
+(reauthorize the Cloudflare GitHub app). Manual retries still work while disconnected because the repo is public.
 
 Tested with `npx wrangler dev` (Pages-era runs used `wrangler pages dev`) + headless Chromium (Playwright's cached build; the Chrome extension
 wasn't connected). No console errors or failed requests, light and dark.
