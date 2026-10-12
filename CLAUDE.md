@@ -94,6 +94,15 @@ spot-check on transitchicago.com station pages.
 - Brown: counterclockwise, Outer Loop. Enters/exits at Tower 18 (NW) via Wells.
 - Orange, Pink, Purple Express: clockwise, Inner Loop. Orange enters at Tower 12 (SE) from Roosevelt;
   Pink enters at Tower 18 from the west on Lake; Purple at Tower 18 from the north.
+- Loop stop orders (use these for `alt` neighbors; the Loop is one-way per line, so "on the same line" is not
+  "next on the line"):
+  - Brown (outer, CCW): Mart → Washington/Wells → Quincy → LaSalle/Van Buren → HWL → Adams/Wabash →
+    Washington/Wabash → (State/Lake) → Clark/Lake → Mart
+  - Purple (inner, CW): Mart → Clark/Lake → Washington/Wabash → Adams/Wabash → HWL → LaSalle/Van Buren →
+    Quincy → Washington/Wells → Mart. Pink: same loop, entering and leaving via Clinton (Green/Pink).
+  - Orange (inner, CW): Roosevelt → HWL → LaSalle/Van Buren → Quincy → Washington/Wells → Clark/Lake →
+    Washington/Wabash → Adams/Wabash → Roosevelt
+  - Green (both ways): Clinton ↔ Clark/Lake ↔ Washington/Wabash ↔ Adams/Wabash ↔ Roosevelt
 - Arrows only on the Loop-circling lines (Brown, Orange, Pink, Purple). Green, Red and Blue run both ways and
   get one line with no arrows, the owner's call (2026-10-11).
 - Brown/Purple north branch (`N_BRANCH`): Wells across the river past Merchandise Mart, jog to Franklin at
