@@ -259,6 +259,7 @@ async function loadAlerts(){
     ALERTS = j.alerts || [];
     lastOk = Date.now();
     markers.forEach(({s,m})=> m.setIcon(iconFor(s)));
+    nearbyKey = ''; renderNearby();  // outages change which nearby stations are usable
   }catch(e){ /* keep the last good alerts; showStatus flags them once stale */ }
   checked = true;
   showStatus();
@@ -294,10 +295,47 @@ function setLocating(on){
   locate._a.classList.toggle('on', on);
   locate._a.setAttribute('aria-pressed', String(on));
   if(on){ centered = false; hasFix = false; map.locate({watch:true, enableHighAccuracy:true, maximumAge:15000}); }
-  else { map.stopLocate(); me.clearLayers(); }
+  else { map.stopLocate(); me.clearLayers(); lastFix = null; }
+  renderNearby();
 }
+
+// Nearest stations with elevators to the user's position, skipping any with an active elevator alert.
+// Computed here from station coordinates; the position never leaves the browser. Distances are estimates
+// (walkMiles), not routed walking or wheelchair paths.
+const nearbyEl = document.getElementById('nearby');
+let lastFix = null, nearbyKey = '';
+function renderNearby(){
+  if(!locating || !lastFix){ nearbyEl.hidden = true; nearbyKey = ''; return; }
+  const here = [lastFix.latlng.lat, lastFix.latlng.lng];
+  const ranked = STATIONS.filter(s=>s.k==='y')
+    .map(s=>({s, d:walkMiles(here, s.ll), out:alertsFor(s).length > 0})).sort((x,y)=>x.d-y.d);
+  const shown = ranked.filter(x=>!x.out).slice(0,3);
+  const limit = shown.length ? shown[shown.length-1].d : Infinity;
+  const skipped = ranked.filter(x=>x.out && x.d <= limit);
+  const rough = lastFix.accuracy > 500;
+  // Redraw only when what's shown changes, so the card doesn't flicker while walking.
+  const key = [shown.map(x=>`${x.s.id}:${x.d.toFixed(1)}`), skipped.map(x=>x.s.id), rough].join('|');
+  if(key === nearbyKey) return;
+  nearbyKey = key;
+  const fmt = d => d < 0.1 ? 'under 0.1 mi' : `${d.toFixed(1)} mi`;
+  const lines = s => s.lines.map(l=>LINE_NAME[l]).join(', ');
+  nearbyEl.innerHTML = `<div class="sec">Nearest stations with elevators</div><ul>${shown.map(x=>
+      `<li><button type="button" data-id="${x.s.id}"><b>${esc(x.s.name)}</b> <span class="d">${fmt(x.d)} · ${esc(lines(x.s))}</span></button></li>`).join('')}</ul>`
+    + (skipped.length ? `<div class="tip">Skipped (elevator alert): ${skipped.map(x=>esc(x.s.name)).join(', ')}</div>` : '')
+    + `<div class="tip">${rough ? `Your location is only accurate to about ${Math.round(lastFix.accuracy)} m, so these are rough. ` : ''}Distances are estimates, not routes.</div>`;
+  nearbyEl.hidden = false;
+}
+nearbyEl.addEventListener('click', e=>{
+  const b = e.target.closest('button[data-id]');
+  if(!b) return;
+  const hit = markers.find(({s})=>String(s.id)===b.dataset.id);
+  if(hit){ map.setView(hit.s.ll, Math.max(map.getZoom(), 15)); hit.m.openPopup(); }
+});
+
 map.on('locationfound', e=>{
   hasFix = true;
+  lastFix = e;
+  renderNearby();
   me.clearLayers();
   me.addLayer(L.circle(e.latlng,{radius:e.accuracy, className:'me-acc', interactive:false, pane:'me'}));
   me.addLayer(L.circleMarker(e.latlng,{radius:7, className:'me-dot', interactive:false, pane:'me'}));

@@ -24,7 +24,7 @@ Owner: Aaron (network engineer). Prefers direct, technically precise communicati
   (gitignored, GTFS is ~70 MB) and writes `cta-data.js`. Rerun after CTA schedule/renovation changes, review
   its "ADA mismatch" notes, commit the output. Reads downtown IDs, names and closures from `app.js`.
 - `public/app.js` — `DOWNTOWN` hand-maintained stations (override generated ones by ID, field by field; plus a
-  Roosevelt position override), `STATIONS` = merged list, `METRA` downtown stations, `TRACKS` geometry, map setup, pixel-offset track rendering, alert polling (5 min) with stale indicator, step-free alternatives (`alt`), locate-me control (watchPosition; position stays client-side)
+  Roosevelt position override), `STATIONS` = merged list, `METRA` downtown stations, `TRACKS` geometry, map setup, pixel-offset track rendering, alert polling (5 min) with stale indicator, step-free alternatives (`alt`), locate-me control (watchPosition; position stays client-side) with a nearest-accessible-stations card
 - `src/worker.js` — Worker entry; routes `GET`/`HEAD /api/elevators`, 405 for other methods, 404 for anything else
 - `src/elevators.js` — `GET /api/elevators`; proxies CTA Customer Alerts API
   (`accessibility=TRUE&activeonly=TRUE`, JSON), normalizes to `{updated, alerts:[{id,headline,short,stations:[{id,name}]}]}`, 120s cache
@@ -92,6 +92,12 @@ Systemwide (2026-10-11):
 - Popups also offer stations with elevators on OTHER lines (no line in common) when they're closer than every
   listed alternative and within 1.5 mi, up to two (`alternatives()` in app.js, computed at runtime so downtown
   hand lists get it too), e.g. Pulaski (Green) 0.8 mi for Pulaski (Blue), Jackson (Red) ↔ Jackson (Blue).
+- Nearest accessible stations (2026-10-11): while locate-me is on, a card (`#nearby`, `renderNearby()`) lists the
+  3 closest stations with elevators by `walkMiles`, skipping and naming any with an active alert (whole station,
+  even for one-platform outages: conservative). Redraws only when the list changes; notes a rough fix when GPS
+  accuracy > 500 m; tapping an entry pans there and opens its popup. Computed in the browser, no routing service:
+  the position still never leaves the page. Tested with Playwright's simulated geolocation (move, outage mocked
+  via a routed /api/elevators, poor accuracy, phone/dark).
 - Markers shrink at zoom ≤13 (`z-mid`/`z-far` classes); opening view still fits downtown.
 - Popup status says "Accessibility alert" instead of "Elevator out of service" when the alert doesn't mention an
   elevator (the feed includes things like "trains will not stop at 43rd").
