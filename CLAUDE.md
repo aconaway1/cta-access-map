@@ -175,8 +175,15 @@ Researched for the accessibility follow-up:
   section above Bindings, not the Builds one; not in wrangler.toml, not in the repo). The owner chose to test
   against the CF deployment rather than keep a local `.dev.vars` copy (gitignored anyway); locally the endpoint
   returns 503 and the UI hides the Metra list. Don't ask for the key or read `.dev.vars`.
-- `src/metra.js` → `GET /api/metra-alerts`: Bearer header + User-Agent, token trimmed (Metra returned 403 until
-  those were added; a bad/missing key gets 401 `{"message":"Unauthenticated"}` from IIS). Small built-in protobuf
+- `src/metra.js` → `GET /api/metra-alerts`: Bearer header + User-Agent, token trimmed. A bad/missing key gets
+  401 `{"message":"Unauthenticated"}` from IIS. Intermittent 403s (about 1 in 3 requests, in ~30 s runs) come
+  from Metra's Azure Application Gateway WAF, not the API, and hit header and `?api_token=` forms alike, so the
+  Worker retries once after 1.5 s and then serves the isolate's last good response (<15 min, `cached:true`,
+  Metra's own `updated` time kept). The page retries a failed first load after 30 s. If this gets worse, ask
+  Metra to allow Cloudflare Workers egress.
+- The key kept vanishing (Oct 12): every Workers Builds deploy runs `wrangler deploy`, which wipes dashboard
+  variables saved as plain Text (the dashboard's default type). `keep_vars = true` is now in wrangler.toml, and the
+  variable must be type Secret. If Metra suddenly shows "not configured" after a push, check this first. Small built-in protobuf
   reader (no deps). JSON: `{updated (feed header time), alerts:[{id, header, description, url, effect, cause,
   periods, stops, routes}]}`; 503 without the secret, 502 with only our own message on failure.
 - What Metra's feed actually contains (Oct 2026): elevator/ramp/ADA notices ARE in it (Ivanhoe elevator, South

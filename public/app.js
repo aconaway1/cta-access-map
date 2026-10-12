@@ -295,7 +295,11 @@ async function loadMetra(){
     metraUpdated = j.updated;
     metraState = 'ok';
     metraMarkers.forEach(({s,m})=> m.setIcon(metraIcon(metraAlertsFor(s).length > 0)));
-  }catch(e){ metraState = METRA_ALERTS.length ? 'ok' : 'error'; }   // keep the last good list if there is one
+  }catch(e){
+    // Keep the last good list if there is one. Metra's firewall refuses some requests in ~30 s runs, so if the
+    // first load fails, try again shortly instead of showing "unavailable" until the next 5-minute poll.
+    if(!METRA_ALERTS.length){ metraState = 'error'; setTimeout(loadMetra, 30*1000); }
+  }
   finally{ showMetra(); }
 }
 

@@ -10,47 +10,59 @@ const EFFECT = ['', 'NO_SERVICE', 'REDUCED_SERVICE', 'SIGNIFICANT_DELAYS', 'DETO
 const CAUSE = ['', 'UNKNOWN_CAUSE', 'OTHER_CAUSE', 'TECHNICAL_PROBLEM', 'STRIKE', 'DEMONSTRATION', 'ACCIDENT', 'HOLIDAY',
   'WEATHER', 'MAINTENANCE', 'CONSTRUCTION', 'POLICE_ACTIVITY', 'MEDICAL_EMERGENCY'];
 
+// Metra's Azure Application Gateway (WAF) intermittently answers 403 to requests from some Cloudflare egress
+// addresses, in runs of ~30 s, regardless of the (valid) key; a bad key gets 401 instead (seen Oct 12, 2026). So:
+// retry once, then serve the last good response from this isolate if it's under 15 minutes old. Its `updated` is
+// Metra's own feed time, so the page's "as of" stays truthful.
+const STALE_OK_MS = 15 * 60 * 1000;
+let lastGood = null;   // {body, at}; per isolate, best effort
+
 export async function metraAlerts(env) {
   if (!env.METRA_API_TOKEN) return json({ error: 'Metra alerts are not configured', alerts: [] }, 60, 503);
   try {
-    // Trimmed: a key pasted into the dashboard can carry whitespace. Metra answered 403 until this and the
-    // User-Agent were added (Oct 2026); a bad or missing key gets 401 {"message":"Unauthenticated"}.
-    const token = env.METRA_API_TOKEN.trim();
-    const ua = 'cta-access-map (+https://github.com/aconaway1/cta-access-map)';
-    const r = await fetch(SOURCE, { headers: { authorization: `Bearer ${token}`, 'user-agent': ua } });
-    if (!r.ok) {
-      // TEMPORARY diagnostic (Oct 12): intermittent 403s. Report what answered, and whether the documented
-      // ?api_token= form behaves differently. Token redacted from anything echoed. Remove once understood.
-      const peek = async res => ({ status: res.status, server: res.headers.get('server'), type: res.headers.get('content-type'),
-        body: (await res.text()).split(token).join('[redacted]').slice(0, 300) });
-      const viaHeader = await peek(r);
-      const q = await fetch(`${SOURCE}?api_token=${encodeURIComponent(token)}`, { headers: { 'user-agent': ua } });
-      const viaQuery = await peek(q);
-      return json({ error: `Metra returned ${r.status}`, diag: { viaHeader, viaQuery, tokenLength: token.length,
-        rawLength: env.METRA_API_TOKEN.length }, alerts: [] }, 0, 502);
+    let r = await fetchFeed(env);
+    if (r.status === 403) {
+      await new Promise(res => setTimeout(res, 1500));
+      r = await fetchFeed(env);
     }
-    const feed = decode(new Uint8Array(await r.arrayBuffer()));
-    const header = one(feed, 1, decode);
-    const ts = header && one(header, 3);
-    const alerts = all(feed, 2).map(decode).filter(e => e[5]).map(e => {
-      const a = decode(e[5][0]);
-      return {
-        id: str(one(e, 1)),
-        header: text(one(a, 10)),
-        description: text(one(a, 11)),
-        url: text(one(a, 8)),
-        effect: EFFECT[one(a, 7) ?? 0] || String(one(a, 7) ?? ''),
-        cause: CAUSE[one(a, 6) ?? 0] || String(one(a, 6) ?? ''),
-        periods: all(a, 1).map(decode).map(p => ({ start: time(one(p, 1)), end: time(one(p, 2)) })),
-        stops: uniq(all(a, 5).map(decode).map(s => str(one(s, 5))).filter(Boolean)),
-        routes: uniq(all(a, 5).map(decode).map(s => str(one(s, 2))).filter(Boolean)),
-      };
-    });
-    return json({ updated: ts ? time(ts) : new Date().toISOString(), alerts }, 60);
+    if (!r.ok) throw new Error(`Metra returned ${r.status}`);
+    const body = parseFeed(new Uint8Array(await r.arrayBuffer()));
+    lastGood = { body, at: Date.now() };
+    return json(body, 60);
   } catch (e) {
+    if (lastGood && Date.now() - lastGood.at < STALE_OK_MS) return json({ ...lastGood.body, cached: true }, 30);
     // Only our own message: never forward Metra's response body or anything containing the request.
     return json({ error: String(e.message || e), alerts: [] }, 30, 502);
   }
+}
+
+// Trimmed: a key pasted into the dashboard can carry whitespace. Sent as a header, never in the URL.
+function fetchFeed(env) {
+  return fetch(SOURCE, { headers: {
+    authorization: `Bearer ${env.METRA_API_TOKEN.trim()}`,
+    'user-agent': 'cta-access-map (+https://github.com/aconaway1/cta-access-map)',
+  } });
+}
+
+function parseFeed(buf) {
+  const feed = decode(buf);
+  const header = one(feed, 1, decode);
+  const ts = header && one(header, 3);
+  const alerts = all(feed, 2).map(decode).filter(e => e[5]).map(e => {
+    const a = decode(e[5][0]);
+    return {
+      id: str(one(e, 1)),
+      header: text(one(a, 10)),
+      description: text(one(a, 11)),
+      url: text(one(a, 8)),
+      effect: EFFECT[one(a, 7) ?? 0] || String(one(a, 7) ?? ''),
+      cause: CAUSE[one(a, 6) ?? 0] || String(one(a, 6) ?? ''),
+      periods: all(a, 1).map(decode).map(p => ({ start: time(one(p, 1)), end: time(one(p, 2)) })),
+      stops: uniq(all(a, 5).map(decode).map(s => str(one(s, 5))).filter(Boolean)),
+      routes: uniq(all(a, 5).map(decode).map(s => str(one(s, 2))).filter(Boolean)),
+    };
+  });
+  return { updated: ts ? time(ts) : new Date().toISOString(), alerts };
 }
 
 // Minimal protobuf reader: returns {fieldNumber: [values]}, with varints as numbers and length-delimited fields
