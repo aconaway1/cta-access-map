@@ -89,6 +89,9 @@ Systemwide (2026-10-11):
   stretches just beyond downtown are dashed (`subway`). Everything farther out is drawn solid (no subway info).
 - Generated `alt`: along each GTFS trip pattern, nearest accessible station each way (ride semantics hold on
   two-way track), up to six, with distance (grid, or straight line +25% if shorter) and compass direction.
+- Popups also offer stations with elevators on OTHER lines (no line in common) when they're closer than every
+  listed alternative and within 1.5 mi, up to two (`alternatives()` in app.js, computed at runtime so downtown
+  hand lists get it too), e.g. Pulaski (Green) 0.8 mi for Pulaski (Blue), Jackson (Red) ↔ Jackson (Blue).
 - Markers shrink at zoom ≤13 (`z-mid`/`z-far` classes); opening view still fits downtown.
 - Popup status says "Accessibility alert" instead of "Elevator out of service" when the alert doesn't mention an
   elevator (the feed includes things like "trains will not stop at 43rd").

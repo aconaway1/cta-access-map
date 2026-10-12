@@ -165,6 +165,27 @@ function iconFor(s){
     html:`<span class="dot ${s.k}${out?' alert':''}"><i class="ti ${ICON[s.k]}"></i></span>`});
 }
 
+// Approximate walking distance in miles: along the street grid, or straight line +25% where that's shorter
+// (same rule as scripts/build_data.py).
+function walkMiles(a,b){
+  const dy = Math.abs(a[0]-b[0])*69.05, dx = Math.abs(a[1]-b[1])*51.45;
+  return Math.min(dy+dx, Math.hypot(dy,dx)*1.25);
+}
+const miOf = d => parseFloat(d);  // every alt detail starts with its distance ("0.8 mi · ...")
+// Alternatives plus up to two stations with elevators on other lines that are closer than every listed option
+// and within walking/rolling range (1.5 mi), e.g. Pulaski (Green) for Pulaski (Blue). Sorted by distance.
+function alternatives(s){
+  const alt = s.alt || [];
+  const best = Math.min(...alt.map(([,d])=>miOf(d)).filter(x=>!isNaN(x)));
+  if(!isFinite(best)) return alt;
+  const listed = new Set(alt.map(([n])=>n));
+  const other = STATIONS
+    .filter(o=>o!==s && o.k==='y' && !listed.has(o.name) && !o.lines.some(l=>s.lines.includes(l)))
+    .map(o=>[walkMiles(s.ll,o.ll), o]).filter(([d])=>d < best && d <= 1.5).sort((x,y)=>x[0]-y[0]).slice(0,2)
+    .map(([d,o])=>[o.name, `${d.toFixed(1)} mi · ${o.lines.map(l=>LINE_NAME[l]).join(', ')}`]);
+  return [...alt, ...other].sort((x,y)=>(miOf(x[1])||0)-(miOf(y[1])||0));
+}
+
 function popupFor(s){
   const chips = s.lines.map(l=>`<span class="chip${LIGHT_CHIP.has(l)?' lt':''}" style="--c:${COLOR[l]}">${LINE_NAME[l]}</span>`).join('');
   const alerts = alertsFor(s), out = s.k==='y' && alerts.length > 0;
@@ -180,7 +201,7 @@ function popupFor(s){
   return `<div class="pop"><h3>${esc(s.name)}</h3><div class="chips">${chips}</div>
     <div class="st ${st}">${STATUS[st]}</div>${al}${tip}
     ${s.note?`<div class="note-p">${esc(s.note)}</div>`:''}
-    ${show ? list('Nearest stations with elevators', s.alt) + list('Accessible buses', s.bus) : ''}</div>`;
+    ${show ? list('Nearest stations with elevators', alternatives(s)) + list('Accessible buses', s.bus) : ''}</div>`;
 }
 function esc(t){return String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
