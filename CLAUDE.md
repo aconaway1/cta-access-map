@@ -60,6 +60,9 @@ Fixed 2026-10-11 (second pass):
 - Stairs-only stations have an `alt` (nearest step-free alternative, including buses for Grand/Chicago Blue,
   whose nearest Blue Line elevators are Clark/Lake and Western). Bus routes checked on transitchicago.com
   (#56 Milwaukee Jefferson Park–Washington/Wabash, #65 Grand and #66 Chicago to Navy Pier).
+- `alt` is a list of `[station, detail]` and `bus` a list of `[route, detail]`, rendered as short labeled lists
+  ("Nearest stations with elevators", "Accessible buses"). Popups show the alert description only (the headline
+  repeats the station), and follow the page theme; status colors have separate light/dark text variants.
 - Elevator stations also have an `alt`, shown only while they have an elevator alert; the popup status
   switches to amber "Elevator out of service". CTA's alert text never suggests alternatives, but often names
   one platform ("Howard-bound platform elevator"); `ONE_PLATFORM` detects that and adds a change-direction tip.
