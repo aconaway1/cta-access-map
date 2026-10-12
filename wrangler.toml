@@ -5,6 +5,10 @@ compatibility_date = "2026-10-06"
 # hostname that Stadia rejects (tiles 401) unless registered there.
 workers_dev = true
 preview_urls = false
+# Keep variables set in the dashboard across `wrangler deploy` (Workers Builds runs it on every push). Without this,
+# a dashboard variable saved as plain text, like METRA_API_TOKEN once was, is wiped by the next deploy. Secrets
+# survive anyway; never put their values here.
+keep_vars = true
 
 [assets]
 directory = "./public"
