@@ -13,8 +13,17 @@ const CAUSE = ['', 'UNKNOWN_CAUSE', 'OTHER_CAUSE', 'TECHNICAL_PROBLEM', 'STRIKE'
 export async function metraAlerts(env) {
   if (!env.METRA_API_TOKEN) return json({ error: 'Metra alerts are not configured', alerts: [] }, 60, 503);
   try {
-    const r = await fetch(SOURCE, { headers: { authorization: `Bearer ${env.METRA_API_TOKEN}` } });
-    if (!r.ok) throw new Error(`Metra returned ${r.status}`);
+    const token = env.METRA_API_TOKEN.trim();
+    const r = await fetch(SOURCE, { headers: {
+      authorization: `Bearer ${token}`,
+      'user-agent': 'cta-access-map (+https://github.com/aconaway1/cta-access-map)',
+    } });
+    if (!r.ok) {
+      // TEMPORARY diagnostic for the first Metra connection: what answered and what it said, with the token
+      // redacted. Remove once working.
+      const body = (await r.text()).split(token).join('[redacted]').slice(0, 300);
+      return json({ error: `Metra returned ${r.status}`, diag: { server: r.headers.get('server'), type: r.headers.get('content-type'), body } , alerts: [] }, 0, 502);
+    }
     const feed = decode(new Uint8Array(await r.arrayBuffer()));
     const header = one(feed, 1, decode);
     const ts = header && one(header, 3);
