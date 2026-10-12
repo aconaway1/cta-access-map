@@ -21,7 +21,7 @@ Manual deploy: `npx wrangler deploy`. Local dev: `npx wrangler dev` (serves on :
 `wrangler.toml` sets the Worker name, entry point, assets directory (`public`) and compatibility date. The
 Worker name in the Cloudflare dashboard must match `name` there.
 
-**Basemap:** Stadia Maps (Alidade Smooth / Smooth Dark). Works on `localhost` with no key; for production, create a free Stadia account and add the `cta-access-map.<account>.workers.dev` hostname under Authentication → domains, or tiles return 401. (CARTO's `light_all`/`dark_all` now return an "API KEY REQUIRED" placeholder, which is why it was replaced.)
+**Basemap:** Stadia Maps (Alidade Smooth / Smooth Dark). Works on `localhost` with no key; for production, create a free Stadia account and add the `cta-access-map.jaconaway1.workers.dev` hostname under Authentication → domains, or tiles return 401. (CARTO's `light_all`/`dark_all` now return an "API KEY REQUIRED" placeholder, which is why it was replaced.)
 
 
 ## Notes

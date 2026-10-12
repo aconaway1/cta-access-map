@@ -1,6 +1,10 @@
 name = "cta-access-map"
 main = "src/worker.js"
 compatibility_date = "2026-10-06"
+# Serve on cta-access-map.jaconaway1.workers.dev. Per-version preview URLs are off: each would be a new
+# hostname that Stadia rejects (tiles 401) unless registered there.
+workers_dev = true
+preview_urls = false
 
 [assets]
 directory = "./public"

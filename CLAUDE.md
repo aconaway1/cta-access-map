@@ -18,7 +18,7 @@ Owner: Aaron (network engineer). Prefers direct, technically precise communicati
 - `public/index.html` — page shell, collapsible key panel (auto-collapsed under 600px width)
 - `public/style.css` — light/dark via `prefers-color-scheme`
 - `public/app.js` — `STATIONS` data, `METRA` downtown stations, `TRACKS` geometry, map setup, pixel-offset track rendering, alert polling (5 min), locate-me control (watchPosition; position stays client-side)
-- `src/worker.js` — Worker entry; routes `GET /api/elevators`, 405 for other methods, 404 for anything else
+- `src/worker.js` — Worker entry; routes `GET`/`HEAD /api/elevators`, 405 for other methods, 404 for anything else
 - `src/elevators.js` — `GET /api/elevators`; proxies CTA Customer Alerts API
   (`accessibility=TRUE&activeonly=TRUE`, JSON), normalizes to `{updated, alerts:[{id,headline,short,stations:[{id,name}]}]}`, 120s cache
 - `README.md` — deploy and dev commands (`npx wrangler deploy`, `npx wrangler dev`)
@@ -30,7 +30,8 @@ needs the workers.dev hostname registered in the Stadia dashboard. `wrangler.tom
 ## Status (2026-10-11): runs locally, not yet deployed
 
 GitHub: https://github.com/aconaway1/cta-access-map (public). Connected to a Cloudflare Worker via
-Workers Builds. The first build failed ("Missing entry-point") because the repo was still Pages-shaped;
+Workers Builds; live at https://cta-access-map.jaconaway1.workers.dev (Stadia domain must be registered
+there or tiles 401). The first build failed ("Missing entry-point") because the repo was still Pages-shaped;
 converted to Workers static assets on 2026-10-11.
 
 Tested with `npx wrangler dev` (Pages-era runs used `wrangler pages dev`) + headless Chromium (Playwright's cached build; the Chrome extension
