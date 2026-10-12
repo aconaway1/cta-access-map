@@ -205,11 +205,28 @@ function popupFor(s){
 }
 function esc(t){return String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
-function metraPopup(s){
-  const chips = s.lines.map(l=>`<span class="chip" style="--c:${METRA_COLOR[l][0]};color:${METRA_COLOR[l][1]}">${l}</span>`).join('');
-  return `<div class="pop"><h3>${esc(s.name)}</h3><div class="chips">${chips}</div>
-    <div>Metra station. Accessibility isn't shown here yet; check metra.com before you travel.</div></div>`;
+// Metra accessibility alerts (/api/metra-alerts). Metra's feed has no stop IDs and no effect codes (Oct 2026), so
+// alerts are picked by keyword and tied to the downtown stations by name in the HEADLINE only (descriptions also
+// name alternate stations, e.g. "use Van Buren Station"). Text is shown verbatim, per Metra's license; the same
+// alert posted once per line is merged with its lines combined.
+const METRA_ACCESS = /elevator|escalator|\bramps?\b|\bADA\b|accessib|wheelchair/i;
+const METRA_NAMES = {OTC:['Ogilvie','OTC'], CUS:['Union Station','CUS'], LSS:['LaSalle Street','LaSalle St.'],
+  MILLENNIUM:['Millennium','South Water'], VANBUREN:['Van Buren'], MUSEUM:['Museum Campus','11th St']};
+let METRA_ALERTS = [], metraUpdated = null, metraState = 'loading';
+const metraChips = ls => ls.filter(l=>METRA_COLOR[l]).map(l=>`<span class="chip" style="--c:${METRA_COLOR[l][0]};color:${METRA_COLOR[l][1]}">${l}</span>`).join('');
+function metraAlertsFor(s){
+  const names = (METRA_NAMES[s.id] || [s.name]).map(n=>n.toLowerCase());
+  return METRA_ALERTS.filter(a=>a.headers.some(h=>names.some(n=>h.toLowerCase().includes(n))));
 }
+function metraPopup(s){
+  const alerts = metraAlertsFor(s);
+  const al = alerts.map(a=>`<div class="al">${esc(a.description || a.headers[0])}</div>`).join('');
+  return `<div class="pop"><h3>${esc(s.name)}</h3><div class="chips">${metraChips(s.lines)}</div>
+    ${alerts.length ? `<div class="st alert">Accessibility alert</div>${al}<div class="tip">From Metra's alert feed, updated ${fmtTime(metraUpdated)}.</div>` : ''}
+    <div class="note-p">Metra station. Its accessibility status isn't shown here yet; check metra.com before you travel.</div></div>`;
+}
+const metraIcon = alert => L.divIcon({className:'stn', iconSize:[24,24], iconAnchor:[12,12],
+  html:`<span class="dot m${alert?' alert':''}"><i class="ti ti-train"></i></span>`});
 
 // Station markers with name labels (labels shown at zoom 16+).
 const labeled = [];
@@ -222,8 +239,7 @@ function addStation(s, icon, popup, z){
   return m;
 }
 STATIONS.forEach(s=> markers.push({s, m:addStation(s, iconFor(s), ()=>popupFor(s), 1000)}));
-const METRA_ICON = L.divIcon({className:'stn', iconSize:[24,24], iconAnchor:[12,12], html:'<span class="dot m"><i class="ti ti-train"></i></span>'});
-METRA.forEach(s=> addStation(s, METRA_ICON, ()=>metraPopup(s), 900));
+const metraMarkers = METRA.map(s=>({s, m:addStation(s, metraIcon(false), ()=>metraPopup(s), 900)}));
 
 function updateLabels(){
   const z = map.getZoom(), show = z >= 16;
@@ -251,7 +267,40 @@ function showStatus(){
   el.classList.toggle('warn', stale);
   badge.hidden = !stale;
 }
+// Metra's systemwide accessibility alerts, listed in the panel (most name stations not on this map).
+function showMetra(){
+  const el = document.getElementById('metra');
+  if(metraState === 'off'){ el.hidden = true; return; }   // endpoint not configured (no key)
+  el.hidden = false;
+  if(metraState !== 'ok'){ el.innerHTML = metraState === 'loading' ? '' : 'Metra accessibility alerts unavailable. Check metra.com before you travel.'; return; }
+  const when = fmtTime(metraUpdated);
+  if(!METRA_ALERTS.length){ el.textContent = `No accessibility alerts in Metra's feed as of ${when}.`; return; }
+  el.innerHTML = `<details><summary>Metra accessibility alerts: ${METRA_ALERTS.length}, from Metra's feed as of ${esc(when)}</summary><ul>${
+    METRA_ALERTS.map(a=>`<li><span class="chips">${metraChips(a.routes)}</span>${esc(a.description || a.headers[0])}</li>`).join('')}</ul></details>`;
+}
+async function loadMetra(){
+  try{
+    const r = await fetch('/api/metra-alerts',{cache:'no-store'});
+    if(r.status === 503){ metraState = 'off'; return; }
+    if(!r.ok) throw new Error(r.status);
+    const j = await r.json();
+    const merged = new Map();
+    for(const a of (j.alerts||[]).filter(a=>METRA_ACCESS.test(`${a.header} ${a.description}`))){
+      const key = a.description || a.header;
+      const m = merged.get(key) || {description:a.description, headers:[], routes:[]};
+      m.headers.push(a.header); a.routes.forEach(r=>m.routes.includes(r) || m.routes.push(r));
+      merged.set(key, m);
+    }
+    METRA_ALERTS = [...merged.values()];
+    metraUpdated = j.updated;
+    metraState = 'ok';
+    metraMarkers.forEach(({s,m})=> m.setIcon(metraIcon(metraAlertsFor(s).length > 0)));
+  }catch(e){ metraState = METRA_ALERTS.length ? 'ok' : 'error'; }   // keep the last good list if there is one
+  finally{ showMetra(); }
+}
+
 async function loadAlerts(){
+  loadMetra();
   try{
     const r = await fetch('/api/elevators',{cache:'no-store'});
     if(!r.ok) throw new Error(r.status);

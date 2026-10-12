@@ -63,3 +63,10 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:14px/1.
 .nearby .d{color:var(--muted)}
 .nearby .chips{margin:0;gap:3px}
 .nearby .chip{font-size:10.5px;padding:0 5px}
+/* Metra accessibility alerts list in the panel. */
+#metra[hidden]{display:none}
+#metra summary{cursor:pointer}
+#metra ul{margin:6px 0 0;padding:0;list-style:none;max-height:40vh;overflow:auto}
+#metra li{margin:0 0 6px;color:var(--fg)}
+#metra .chips{display:inline-flex;margin:0 6px 0 0;vertical-align:middle}
+#metra .chip{font-size:10px;padding:0 4px}

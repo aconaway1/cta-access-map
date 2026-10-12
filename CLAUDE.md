@@ -26,6 +26,7 @@ Owner: Aaron (network engineer). Prefers direct, technically precise communicati
 - `public/app.js` — `DOWNTOWN` hand-maintained stations (override generated ones by ID, field by field; plus a
   Roosevelt position override), `STATIONS` = merged list, `METRA` downtown stations, `TRACKS` geometry, map setup, pixel-offset track rendering, alert polling (5 min) with stale indicator, step-free alternatives (`alt`), locate-me control (watchPosition; position stays client-side) with a nearest-accessible-stations card
 - `src/worker.js` — Worker entry; routes `GET`/`HEAD /api/elevators`, 405 for other methods, 404 for anything else
+- `src/metra.js` — `GET /api/metra-alerts`; Metra GTFS-realtime alerts (protobuf → JSON) using the `METRA_API_TOKEN` secret
 - `src/elevators.js` — `GET /api/elevators`; proxies CTA Customer Alerts API
   (`accessibility=TRUE&activeonly=TRUE`, JSON), normalizes to `{updated, alerts:[{id,headline,short,stations:[{id,name}]}]}`, 120s cache
 - `README.md` — deploy and dev commands (`npx wrangler deploy`, `npx wrangler dev`)
@@ -156,7 +157,7 @@ spot-check on transitchicago.com station pages.
   Closed paths (first point == last) are handled for the rectangle.
 - Coordinates are approximate (hand-placed), good enough for a schematic, not survey-grade.
 
-## Metra (added 2026-10-11, no accessibility data yet)
+## Metra (stations 2026-10-11; live accessibility alerts 2026-10-12; station accessibility status not yet)
 
 The six downtown Metra stations are shown as gray square markers for transfers: OTC, Union Station, LaSalle
 Street, Millennium, Van Buren Street, Museum Campus/11th St. No tracks, no accessibility status, no alerts.
@@ -169,11 +170,23 @@ Researched for the accessibility follow-up:
   `stops.txt` has `wheelchair_boarding` (196 × `1`, 45 × `0` = unknown, none `2`). It disagrees with Metra's
   elevator list (79th/Chatham, 87th/Woodruff, 103rd/Rosemoor, Grand/Cicero are `0` but have elevators;
   Millennium is `1` while its only elevator is closed until winter 2026–27), so overrides are needed.
-- Realtime: `https://gtfspublic.metrarr.com/gtfs/public/alerts` (protobuf, 30s refresh), free key via
-  metra.com/developers, Bearer header or `api_token` param. Key requested 2026-10-11, awaiting approval.
-  Store it as a Worker secret (`npx wrangler secret put METRA_API_TOKEN`, or the dashboard), never in the
-  repo: it's public. Unknown whether elevator
-  outages appear in it; there's no accessibility filter like CTA's.
+- Realtime: `https://gtfspublic.metrarr.com/gtfs/public/alerts` (protobuf, 30s refresh). Key approved 2026-10-12,
+  stored ONLY as the Worker runtime secret `METRA_API_TOKEN` (Settings → *Runtime variables and secrets*, the
+  section above Bindings, not the Builds one; not in wrangler.toml, not in the repo). The owner chose to test
+  against the CF deployment rather than keep a local `.dev.vars` copy (gitignored anyway); locally the endpoint
+  returns 503 and the UI hides the Metra list. Don't ask for the key or read `.dev.vars`.
+- `src/metra.js` → `GET /api/metra-alerts`: Bearer header + User-Agent, token trimmed (Metra returned 403 until
+  those were added; a bad/missing key gets 401 `{"message":"Unauthenticated"}` from IIS). Small built-in protobuf
+  reader (no deps). JSON: `{updated (feed header time), alerts:[{id, header, description, url, effect, cause,
+  periods, stops, routes}]}`; 503 without the secret, 502 with only our own message on failure.
+- What Metra's feed actually contains (Oct 2026): elevator/ramp/ADA notices ARE in it (Ivanhoe elevator, South
+  Water/Millennium elevator, Summit and Grayslake ramps, Union Station Great Hall access), but every alert has
+  effect/cause UNKNOWN, no active periods and NO stop IDs, only route IDs; the same alert is posted once per line.
+- Front end: keyword filter (elevator|escalator|ramp|ADA|accessib|wheelchair), merge identical descriptions
+  (lines combined), show descriptions verbatim. Downtown Metra popups match alerts by station name in the
+  HEADLINE only (`METRA_NAMES`; descriptions name alternate stations like "use Van Buren Station") and get the
+  orange badge. A collapsed list in the panel shows all Metra accessibility alerts systemwide with Metra's update
+  time ("No accessibility alerts in Metra's feed as of …" when empty, per the license wording).
 - License (read 2026-10-11; Metra can change it any time): serve data through our own host (the Worker does),
   show last-updated time, state the app isn't affiliated with Metra (footer note in the panel), no Metra
   trademarks/logo. Nothing about AI or how the app is built. Also: "must not modify or delete Data" (filtering

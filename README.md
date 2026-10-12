@@ -38,5 +38,5 @@ Worker name in the Cloudflare dashboard must match `name` there.
 - Live alerts come from CTA's Customer Alerts API (`accessibility=TRUE&activeonly=TRUE`), no key required. Stations are matched by CTA map ID, with name matching as a fallback. Verify the IDs in `public/app.js` against `/api/elevators` output after the first deploy.
 - Track offsets are recomputed in screen pixels on every zoom, so parallel Loop lines stay separated at any zoom level.
 - Station and track coordinates are approximate.
-- Downtown Metra stations are shown for transfers only (positions and lines from Metra static GTFS); no Metra accessibility data or alerts yet.
+- Downtown Metra stations are shown for transfers (positions and lines from Metra static GTFS). Metra accessibility alerts come from Metra's GTFS-realtime feed via `/api/metra-alerts`, which needs the Worker secret `METRA_API_TOKEN` (set in the Cloudflare dashboard under Runtime variables and secrets; never commit it). Without it the endpoint returns 503 and the page hides the Metra list.
 - Accessibility status (k: `y` elevator, `n` stairs, `c` closed) is generated from CTA GTFS, with downtown overrides in `DOWNTOWN` in `public/app.js`. Update State/Lake there when it reopens (expected 2029).
