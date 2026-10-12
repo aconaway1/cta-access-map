@@ -93,7 +93,8 @@ Systemwide (2026-10-11):
   listed alternative and within 1.5 mi, up to two (`alternatives()` in app.js, computed at runtime so downtown
   hand lists get it too), e.g. Pulaski (Green) 0.8 mi for Pulaski (Blue), Jackson (Red) ↔ Jackson (Blue).
 - Nearest accessible stations (2026-10-11): while locate-me is on, a card (`#nearby`, `renderNearby()`) lists the
-  3 closest stations with elevators by `walkMiles`, skipping and naming any with an active alert (whole station,
+  closest station with an elevator on EACH line (owner's request), one row per station tagged with the lines it's
+  closest for, sorted by `walkMiles`; collapsible. Skips and names any station with an active alert (whole station,
   even for one-platform outages: conservative). Redraws only when the list changes; notes a rough fix when GPS
   accuracy > 500 m; tapping an entry pans there and opens its popup. Computed in the browser, no routing service:
   the position still never leaves the page. Tested with Playwright's simulated geolocation (move, outage mocked

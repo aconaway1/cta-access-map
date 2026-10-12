@@ -299,33 +299,44 @@ function setLocating(on){
   renderNearby();
 }
 
-// Nearest stations with elevators to the user's position, skipping any with an active elevator alert.
+// Closest station with an elevator on each line to the user's position, skipping any with an active alert.
+// A station that's closest for several lines (Clark/Lake downtown) gets one row tagged with those lines.
 // Computed here from station coordinates; the position never leaves the browser. Distances are estimates
 // (walkMiles), not routed walking or wheelchair paths.
 const nearbyEl = document.getElementById('nearby');
-let lastFix = null, nearbyKey = '';
+let lastFix = null, nearbyKey = '', nearbyCollapsed = false;
 function renderNearby(){
   if(!locating || !lastFix){ nearbyEl.hidden = true; nearbyKey = ''; return; }
   const here = [lastFix.latlng.lat, lastFix.latlng.lng];
-  const ranked = STATIONS.filter(s=>s.k==='y')
-    .map(s=>({s, d:walkMiles(here, s.ll), out:alertsFor(s).length > 0})).sort((x,y)=>x.d-y.d);
-  const shown = ranked.filter(x=>!x.out).slice(0,3);
-  const limit = shown.length ? shown[shown.length-1].d : Infinity;
-  const skipped = ranked.filter(x=>x.out && x.d <= limit);
+  const cands = STATIONS.filter(s=>s.k==='y').map(s=>({s, d:walkMiles(here, s.ll), out:alertsFor(s).length > 0}));
+  const rows = new Map(), skipped = new Set();
+  for(const line of Object.keys(LINE_NAME)){
+    const onLine = cands.filter(x=>x.s.lines.includes(line)).sort((x,y)=>x.d-y.d);
+    const pick = onLine.find(x=>!x.out);
+    if(!pick) continue;
+    onLine.filter(x=>x.out && x.d < pick.d).forEach(x=>skipped.add(x.s.name));
+    if(!rows.has(pick.s.id)) rows.set(pick.s.id, {...pick, lines:[]});
+    rows.get(pick.s.id).lines.push(line);
+  }
+  const shown = [...rows.values()].sort((x,y)=>x.d-y.d);
   const rough = lastFix.accuracy > 500;
   // Redraw only when what's shown changes, so the card doesn't flicker while walking.
-  const key = [shown.map(x=>`${x.s.id}:${x.d.toFixed(1)}`), skipped.map(x=>x.s.id), rough].join('|');
+  const key = [shown.map(x=>`${x.s.id}:${x.d.toFixed(1)}:${x.lines}`), [...skipped], rough, nearbyCollapsed].join('|');
   if(key === nearbyKey) return;
   nearbyKey = key;
   const fmt = d => d < 0.1 ? 'under 0.1 mi' : `${d.toFixed(1)} mi`;
-  const lines = s => s.lines.map(l=>LINE_NAME[l]).join(', ');
-  nearbyEl.innerHTML = `<div class="sec">Nearest stations with elevators</div><ul>${shown.map(x=>
-      `<li><button type="button" data-id="${x.s.id}"><b>${esc(x.s.name)}</b> <span class="d">${fmt(x.d)} · ${esc(lines(x.s))}</span></button></li>`).join('')}</ul>`
-    + (skipped.length ? `<div class="tip">Skipped (elevator alert): ${skipped.map(x=>esc(x.s.name)).join(', ')}</div>` : '')
-    + `<div class="tip">${rough ? `Your location is only accurate to about ${Math.round(lastFix.accuracy)} m, so these are rough. ` : ''}Distances are estimates, not routes.</div>`;
+  const chips = ls => ls.map(l=>`<span class="chip${LIGHT_CHIP.has(l)?' lt':''}" style="--c:${COLOR[l]}">${LINE_NAME[l]}</span>`).join('');
+  nearbyEl.classList.toggle('collapsed', nearbyCollapsed);
+  nearbyEl.innerHTML = `<div class="head"><div class="sec">Closest station with an elevator, by line</div>
+      <button type="button" class="tog" aria-expanded="${!nearbyCollapsed}" aria-label="${nearbyCollapsed?'Expand':'Collapse'} nearest stations"><i class="ti ti-chevron-down"></i></button></div>
+    <div class="body"><ul>${shown.map(x=>
+      `<li><button type="button" data-id="${x.s.id}"><span class="r1"><b>${esc(x.s.name)}</b> <span class="d">${fmt(x.d)}</span></span><span class="chips">${chips(x.lines)}</span></button></li>`).join('')}</ul>`
+    + (skipped.size ? `<div class="tip">Skipped (elevator alert): ${[...skipped].map(esc).join(', ')}</div>` : '')
+    + `<div class="tip">${rough ? `Your location is only accurate to about ${Math.round(lastFix.accuracy)} m, so these are rough. ` : ''}Distances are estimates, not routes.</div></div>`;
   nearbyEl.hidden = false;
 }
 nearbyEl.addEventListener('click', e=>{
+  if(e.target.closest('.tog')){ nearbyCollapsed = !nearbyCollapsed; renderNearby(); return; }
   const b = e.target.closest('button[data-id]');
   if(!b) return;
   const hit = markers.find(({s})=>String(s.id)===b.dataset.id);

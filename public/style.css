@@ -48,12 +48,18 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:14px/1.
 .me-dot{fill:#1a73e8;fill-opacity:1;stroke:#fff;stroke-width:3}
 .me-acc{fill:#1a73e8;fill-opacity:.12;stroke:#1a73e8;stroke-opacity:.4;stroke-width:1}
 .me-dot.stale,.me-acc.stale{opacity:.45}
-/* Nearest accessible stations card (shown while locate-me is on). */
-.nearby{position:absolute;left:12px;bottom:28px;z-index:1000;width:min(360px,calc(100vw - 24px));box-sizing:border-box;background:var(--bg);color:var(--fg);border:1px solid var(--border);border-radius:10px;padding:8px 12px 10px;box-shadow:0 2px 10px rgba(0,0,0,.15);font-size:13px}
+/* Closest-station-by-line card (shown while locate-me is on). */
+.nearby{position:absolute;left:12px;bottom:28px;z-index:1000;width:min(360px,calc(100vw - 24px));max-height:calc(100% - 140px);overflow:auto;box-sizing:border-box;background:var(--bg);color:var(--fg);border:1px solid var(--border);border-radius:10px;padding:8px 12px 10px;box-shadow:0 2px 10px rgba(0,0,0,.15);font-size:13px}
 .nearby[hidden]{display:none}
-.nearby .sec{margin:0 0 4px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
-.nearby ul{margin:0;padding:0;list-style:none}
-.nearby button{all:unset;cursor:pointer;display:block;width:100%;padding:3px 0;border-radius:4px}
-.nearby button:hover b,.nearby button:focus-visible b{text-decoration:underline}
+.nearby .head{display:flex;align-items:center;gap:8px}
+.nearby .sec{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.nearby .tog{all:unset;cursor:pointer;margin-left:auto;font-size:16px;color:var(--fg);padding:2px}
+.nearby.collapsed .body{display:none}
+.nearby.collapsed .ti-chevron-down{transform:rotate(180deg)}
+.nearby ul{margin:4px 0 0;padding:0;list-style:none}
+.nearby li button{all:unset;cursor:pointer;display:flex;flex-wrap:wrap;align-items:center;gap:2px 8px;width:100%;padding:3px 0;border-radius:4px}
+.nearby li button:hover b,.nearby li button:focus-visible b{text-decoration:underline}
 .nearby button:focus-visible{outline:2px solid var(--muted);outline-offset:2px}
 .nearby .d{color:var(--muted)}
+.nearby .chips{margin:0;gap:3px}
+.nearby .chip{font-size:10.5px;padding:0 5px}
