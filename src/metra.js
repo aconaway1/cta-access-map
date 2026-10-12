@@ -16,11 +16,19 @@ export async function metraAlerts(env) {
     // Trimmed: a key pasted into the dashboard can carry whitespace. Metra answered 403 until this and the
     // User-Agent were added (Oct 2026); a bad or missing key gets 401 {"message":"Unauthenticated"}.
     const token = env.METRA_API_TOKEN.trim();
-    const r = await fetch(SOURCE, { headers: {
-      authorization: `Bearer ${token}`,
-      'user-agent': 'cta-access-map (+https://github.com/aconaway1/cta-access-map)',
-    } });
-    if (!r.ok) throw new Error(`Metra returned ${r.status}`);
+    const ua = 'cta-access-map (+https://github.com/aconaway1/cta-access-map)';
+    const r = await fetch(SOURCE, { headers: { authorization: `Bearer ${token}`, 'user-agent': ua } });
+    if (!r.ok) {
+      // TEMPORARY diagnostic (Oct 12): intermittent 403s. Report what answered, and whether the documented
+      // ?api_token= form behaves differently. Token redacted from anything echoed. Remove once understood.
+      const peek = async res => ({ status: res.status, server: res.headers.get('server'), type: res.headers.get('content-type'),
+        body: (await res.text()).split(token).join('[redacted]').slice(0, 300) });
+      const viaHeader = await peek(r);
+      const q = await fetch(`${SOURCE}?api_token=${encodeURIComponent(token)}`, { headers: { 'user-agent': ua } });
+      const viaQuery = await peek(q);
+      return json({ error: `Metra returned ${r.status}`, diag: { viaHeader, viaQuery, tokenLength: token.length,
+        rawLength: env.METRA_API_TOKEN.length }, alerts: [] }, 0, 502);
+    }
     const feed = decode(new Uint8Array(await r.arrayBuffer()));
     const header = one(feed, 1, decode);
     const ts = header && one(header, 3);
