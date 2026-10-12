@@ -27,11 +27,11 @@ CDNs: Leaflet 1.9.4 (cdnjs), leaflet-polylinedecorator 1.6.0 (unpkg), Tabler ico
 Basemap: Stadia Maps alidade_smooth / alidade_smooth_dark (CARTO now requires an API key). Production
 needs the workers.dev hostname registered in the Stadia dashboard. `wrangler.toml` holds name, output dir, compat date.
 
-## Status (2026-10-11): runs locally, not yet deployed
+## Status (2026-10-11): deployed, map and live alerts working in production
 
 GitHub: https://github.com/aconaway1/cta-access-map (public). Connected to a Cloudflare Worker via
-Workers Builds; live at https://cta-access-map.jaconaway1.workers.dev (Stadia domain must be registered
-there or tiles 401). The first build failed ("Missing entry-point") because the repo was still Pages-shaped;
+Workers Builds; live at https://cta-access-map.jaconaway1.workers.dev (domain registered with Stadia; tiles 401 on any other hostname).
+The first build failed ("Missing entry-point") because the repo was still Pages-shaped;
 converted to Workers static assets on 2026-10-11.
 
 Tested with `npx wrangler dev` (Pages-era runs used `wrangler pages dev`) + headless Chromium (Playwright's cached build; the Chrome extension
