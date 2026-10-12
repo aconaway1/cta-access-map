@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Loop L Access Map</title>
-<meta name="description" content="Elevator access at CTA L stations in the Loop, West Loop and River North, with live elevator outages.">
+<title>CTA L Access Map</title>
+<meta name="description" content="Elevator access at every CTA L station, with live elevator outages and step-free alternatives.">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3/dist/tabler-icons.min.css">
 <link rel="stylesheet" href="style.css">
@@ -13,7 +13,7 @@
 <div id="map"></div>
 <aside id="panel">
   <div class="head">
-    <h1>Loop L access</h1>
+    <h1>CTA L access</h1>
     <span id="stale" class="stale" hidden title="Live elevator alerts are out of date" aria-label="Live elevator alerts are out of date"><i class="ti ti-alert-triangle"></i></span>
     <button id="toggle" aria-expanded="true" aria-label="Collapse key"><i class="ti ti-chevron-up"></i></button>
   </div>
@@ -33,6 +33,7 @@
       <span class="k"><i class="sw" style="--c:#F9461C"></i>Orange</span>
       <span class="k"><i class="sw" style="--c:#E27EA6"></i>Pink</span>
       <span class="k"><i class="sw cased" style="--c:#522398"></i>Purple</span>
+      <span class="k"><i class="sw" style="--c:#F9E300"></i>Yellow</span>
       <span class="k"><i class="sw dash"></i>Subway</span>
     </div>
     <p class="note">Loop: Brown runs counterclockwise (outer track). Orange, Pink and Purple run clockwise (inner track).</p>
@@ -42,6 +43,7 @@
 </aside>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://unpkg.com/leaflet-polylinedecorator@1.6.0/dist/leaflet.polylineDecorator.js"></script>
+<script src="cta-data.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

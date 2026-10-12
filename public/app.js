@@ -1,40 +1,54 @@
-// Loop L access map. Coordinates are approximate station/track positions.
-const COLOR = {red:'#C60C30',blue:'#00A1DE',brown:'#62361B',green:'#009B3A',orange:'#F9461C',pink:'#E27EA6',purple:'#522398'};
-const LINE_NAME = {red:'Red',blue:'Blue',brown:'Brown',green:'Green',orange:'Orange',pink:'Pink',purple:'Purple'};
+// CTA L access map. Stations and outer track geometry come from public/cta-data.js (scripts/build_data.py);
+// downtown (Loop, West Loop, River North) is hand-maintained below and overrides the generated data.
+const COLOR = {red:'#C60C30',blue:'#00A1DE',brown:'#62361B',green:'#009B3A',orange:'#F9461C',pink:'#E27EA6',purple:'#522398',yellow:'#F9E300'};
+const LINE_NAME = {red:'Red',blue:'Blue',brown:'Brown',green:'Green',orange:'Orange',pink:'Pink',purple:'Purple',yellow:'Yellow'};
+const LIGHT_CHIP = new Set(['pink','yellow']);  // chips that need dark text
 
 // k: y = elevator, n = stairs only, c = closed. id = CTA station (map) ID used by the alerts feed.
 // match = station name as the alerts feed spells it, only where the name is unique systemwide.
 // alt = nearest stations with elevators as [name, detail]; bus = accessible bus options as [route, detail].
+// alt means "use this station instead", which works in either direction. Loop lines run one way, so Loop entries
+// give which lines stop there, never "next stop"; that wording is only used on two-way track (Red, Blue,
+// Green/Pink west of the Loop, Brown/Purple north). Every entry starts with an approximate distance: along the
+// street grid, or straight line +15% where the Blue Line follows diagonal Milwaukee Ave.
 // Shown always for stairs-only stations, and for elevator stations while an elevator alert is active.
-const STATIONS = [
-  {id:40380,name:'Clark/Lake',match:'Clark/Lake',ll:[41.8857,-87.6309],k:'y',lines:['blue','brown','green','orange','pink','purple'],side:'right',note:'Elevated platforms and Blue Line subway both have elevators.',alt:[['Washington/Wabash', 'all elevated lines here'], ['Clinton (Green/Pink)', 'Green, Pink'], ['Washington/Wells', 'Orange'], ['Merchandise Mart', 'Brown, Purple'], ['Jackson (Blue)', '3 stops toward Forest Park'], ['Western (Blue)', '5 stops toward O’Hare']]},
+// Downtown stations: hand-placed on the hand-drawn tracks, with labels, notes and Loop-aware alternatives.
+const DOWNTOWN = [
+  {id:40380,name:'Clark/Lake',match:'Clark/Lake',ll:[41.8857,-87.6309],k:'y',lines:['blue','brown','green','orange','pink','purple'],side:'right',note:'Elevated platforms and Blue Line subway both have elevators.',alt:[['Washington/Wells', '0.3 mi · Brown, Orange, Pink, Purple'], ['Washington/Wabash', '0.4 mi · all elevated lines here'], ['Jackson (Blue)', '0.6 mi · 3 stops toward Forest Park'], ['Western (Blue, O’Hare branch)', '4.1 mi · 5 stops toward O’Hare']]},
   {id:40260,name:'State/Lake',match:'State/Lake',ll:[41.8858,-87.6278],k:'c',lines:['brown','green','orange','pink','purple'],side:'right',note:'Closed since Jan. 5, 2026 for full rebuild; reopening expected 2029. Trains bypass it. Use Washington/Wabash or Clark/Lake.'},
-  {id:41660,name:'Lake (Red)',match:'Lake',ll:[41.8846,-87.6278],k:'y',lines:['red'],side:'right',note:'To transfer to the elevated lines while State/Lake is closed, CTA says to use Washington/Wabash.',alt:[['Grand (Red)', 'next stop north'], ['Jackson (Red)', '2 stops south']]},
-  {id:41700,name:'Washington/Wabash',match:'Washington/Wabash',ll:[41.8831,-87.6261],k:'y',lines:['brown','green','orange','pink','purple'],side:'right',alt:[['Clark/Lake', 'all lines here'], ['Harold Washington Library', 'Brown, Pink, Purple'], ['Roosevelt', 'Green, Orange']]},
-  {id:40680,name:'Adams/Wabash',match:'Adams/Wabash',ll:[41.8794,-87.6261],k:'n',lines:['brown','green','orange','pink','purple'],side:'right',alt:[['Washington/Wabash', '2 blocks north, same lines'], ['Harold Washington Library', 'Brown, Pink, Purple'], ['Roosevelt', 'Green, Orange']]},
-  {id:40850,name:'Harold Washington Library',match:'Harold Washington Library-State/Van Buren',ll:[41.8768,-87.6281],k:'y',lines:['brown','orange','pink','purple'],side:'bottom',alt:[['Quincy', 'same lines'], ['Washington/Wabash', 'Brown, Pink, Purple'], ['Roosevelt', 'Orange']]},
-  {id:40160,name:'LaSalle/Van Buren',match:'LaSalle/Van Buren',ll:[41.8768,-87.6318],k:'n',lines:['brown','orange','pink','purple'],side:'top',alt:[['Quincy', 'same lines'], ['Harold Washington Library', 'same lines']]},
-  {id:40040,name:'Quincy',match:'Quincy/Wells',ll:[41.8786,-87.6338],k:'y',lines:['brown','orange','pink','purple'],side:'left',alt:[['Washington/Wells', 'next stop, same lines'], ['Harold Washington Library', 'same lines']]},
-  {id:40730,name:'Washington/Wells',match:'Washington/Wells',ll:[41.8829,-87.6338],k:'y',lines:['brown','orange','pink','purple'],side:'left',alt:[['Quincy', 'next stop, same lines'], ['Clark/Lake', 'Orange'], ['Merchandise Mart', 'Brown, Purple'], ['Clinton (Green/Pink)', 'Pink']]},
-  {id:40560,name:'Jackson (Red)',ll:[41.8783,-87.6277],k:'y',lines:['red'],side:'right',alt:[['Lake (Red)', '2 stops north'], ['Roosevelt', '2 stops south']]},
-  {id:41090,name:'Monroe (Red)',ll:[41.8807,-87.6277],k:'n',lines:['red'],side:'right',alt:[['Jackson (Red)', '2 blocks south']]},
-  {id:40370,name:'Washington (Blue)',ll:[41.8833,-87.6294],k:'n',lines:['blue'],side:'left',alt:[['Clark/Lake', '2 blocks north']]},
-  {id:40790,name:'Monroe (Blue)',ll:[41.8806,-87.6294],k:'n',lines:['blue'],side:'left',alt:[['Jackson (Blue)', '2 blocks south']]},
-  {id:40070,name:'Jackson (Blue)',ll:[41.8782,-87.6294],k:'y',lines:['blue'],side:'left',alt:[['Clark/Lake', '3 stops toward O’Hare'], ['UIC-Halsted', '3 stops toward Forest Park']]},
-  {id:41340,name:'LaSalle (Blue)',ll:[41.8757,-87.6317],k:'n',lines:['blue'],side:'bottom',alt:[['Jackson (Blue)', 'next stop toward O’Hare']]},
-  {id:40430,name:'Clinton (Blue)',ll:[41.8756,-87.6407],k:'n',lines:['blue'],side:'bottom',note:'Steep stairs. For step-free access to Union Station, use Clinton (Green/Pink).',alt:[['UIC-Halsted', 'next stop toward Forest Park'], ['Jackson (Blue)', '2 stops toward O’Hare']]},
-  {id:41160,name:'Clinton (Green/Pink)',ll:[41.8856,-87.6416],k:'y',lines:['green','pink'],side:'top',alt:[['Clark/Lake', 'next stop east'], ['Washington/Wells', 'Pink, from the Loop'], ['Morgan', 'next stop west']]},
-  {id:41510,name:'Morgan',match:'Morgan',ll:[41.8856,-87.6524],k:'y',lines:['green','pink'],side:'top',alt:[['Clinton (Green/Pink)', 'next stop east'], ['Ashland (Green/Pink)', 'next stop west']]},
-  {id:40170,name:'Ashland (Green/Pink)',ll:[41.8853,-87.6667],k:'y',lines:['green','pink'],side:'top',alt:[['Morgan', 'next stop east'], ['Damen (Green)', 'next stop west'], ['Polk (Pink)', 'next stop west']]},
-  {id:40350,name:'UIC-Halsted',match:'UIC-Halsted',ll:[41.8757,-87.6492],k:'y',lines:['blue'],side:'bottom',alt:[['Jackson (Blue)', '3 stops toward O’Hare'], ['Illinois Medical District', '2 stops toward Forest Park']]},
+  {id:41660,name:'Lake (Red)',match:'Lake',ll:[41.8846,-87.6278],k:'y',lines:['red'],side:'right',note:'To transfer to the elevated lines while State/Lake is closed, CTA says to use Washington/Wabash.',alt:[['Grand (Red)', '0.5 mi · next stop north'], ['Jackson (Red)', '0.5 mi · 2 stops south']]},
+  {id:41700,name:'Washington/Wabash',match:'Washington/Wabash',ll:[41.8831,-87.6261],k:'y',lines:['brown','green','orange','pink','purple'],side:'right',alt:[['Clark/Lake', '0.4 mi · same lines'], ['Harold Washington Library', '0.5 mi · all but Green']]},
+  {id:40680,name:'Adams/Wabash',match:'Adams/Wabash',ll:[41.8794,-87.6261],k:'n',lines:['brown','green','orange','pink','purple'],side:'right',alt:[['Washington/Wabash', '0.3 mi · same lines'], ['Harold Washington Library', '0.3 mi · all but Green']]},
+  {id:40850,name:'Harold Washington Library',match:'Harold Washington Library-State/Van Buren',ll:[41.8768,-87.6281],k:'y',lines:['brown','orange','pink','purple'],side:'bottom',alt:[['Quincy', '0.4 mi · same lines'], ['Washington/Wabash', '0.5 mi · same lines']]},
+  {id:40160,name:'LaSalle/Van Buren',match:'LaSalle/Van Buren',ll:[41.8768,-87.6318],k:'n',lines:['brown','orange','pink','purple'],side:'top',alt:[['Harold Washington Library', '0.2 mi · same lines'], ['Quincy', '0.2 mi · same lines']]},
+  {id:40040,name:'Quincy',match:'Quincy/Wells',ll:[41.8786,-87.6338],k:'y',lines:['brown','orange','pink','purple'],side:'left',alt:[['Washington/Wells', '0.3 mi · same lines'], ['Harold Washington Library', '0.4 mi · same lines']]},
+  {id:40730,name:'Washington/Wells',match:'Washington/Wells',ll:[41.8829,-87.6338],k:'y',lines:['brown','orange','pink','purple'],side:'left',alt:[['Quincy', '0.3 mi · same lines'], ['Clark/Lake', '0.3 mi · same lines']]},
+  {id:40560,name:'Jackson (Red)',ll:[41.8783,-87.6277],k:'y',lines:['red'],side:'right',alt:[['Lake (Red)', '0.5 mi · 2 stops north'], ['Roosevelt', '0.8 mi · 2 stops south']]},
+  {id:41090,name:'Monroe (Red)',ll:[41.8807,-87.6277],k:'n',lines:['red'],side:'right',alt:[['Jackson (Red)', '0.2 mi · south']]},
+  {id:40370,name:'Washington (Blue)',ll:[41.8833,-87.6294],k:'n',lines:['blue'],side:'left',alt:[['Clark/Lake', '0.3 mi · north']]},
+  {id:40790,name:'Monroe (Blue)',ll:[41.8806,-87.6294],k:'n',lines:['blue'],side:'left',alt:[['Jackson (Blue)', '0.2 mi · south']]},
+  {id:40070,name:'Jackson (Blue)',ll:[41.8782,-87.6294],k:'y',lines:['blue'],side:'left',alt:[['Clark/Lake', '0.6 mi · 3 stops toward O’Hare'], ['UIC-Halsted', '1.2 mi · 3 stops toward Forest Park']]},
+  {id:41340,name:'LaSalle (Blue)',ll:[41.8757,-87.6317],k:'n',lines:['blue'],side:'bottom',alt:[['Jackson (Blue)', '0.3 mi · next stop toward O’Hare']]},
+  {id:40430,name:'Clinton (Blue)',ll:[41.8756,-87.6407],k:'n',lines:['blue'],side:'bottom',note:'Steep stairs. For step-free access to Union Station, use Clinton (Green/Pink).',alt:[['UIC-Halsted', '0.5 mi · next stop toward Forest Park'], ['Jackson (Blue)', '0.8 mi · 2 stops toward O’Hare']]},
+  {id:41160,name:'Clinton (Green/Pink)',ll:[41.8856,-87.6416],k:'y',lines:['green','pink'],side:'top',alt:[['Morgan', '0.5 mi · next stop west'], ['Clark/Lake', '0.6 mi · Green, Pink']]},
+  {id:41510,name:'Morgan',match:'Morgan',ll:[41.8856,-87.6524],k:'y',lines:['green','pink'],side:'top',alt:[['Clinton (Green/Pink)', '0.5 mi · next stop east'], ['Ashland (Green/Pink)', '0.8 mi · next stop west']]},
+  {id:40170,name:'Ashland (Green/Pink)',ll:[41.8853,-87.6667],k:'y',lines:['green','pink'],side:'top',alt:[['Morgan', '0.8 mi · next stop east'], ['Damen (Green)', '0.5 mi · next stop west'], ['Polk', '1.1 mi · next stop west']]},
+  {id:40350,name:'UIC-Halsted',match:'UIC-Halsted',ll:[41.8757,-87.6492],k:'y',lines:['blue'],side:'bottom',alt:[['Jackson (Blue)', '1.2 mi · 3 stops toward O’Hare'], ['Illinois Medical District', '1.3 mi · 2 stops toward Forest Park']]},
   // North of the river. No match names: Grand and Chicago each exist on several lines.
-  {id:40460,name:'Merchandise Mart',match:'Merchandise Mart',ll:[41.8890,-87.6339],k:'y',lines:['brown','purple'],side:'left',alt:[['Chicago (Brown/Purple)', 'next stop north'], ['Washington/Wells', 'first Loop stop, Brown'], ['Clark/Lake', 'first Loop stop, Purple']]},
-  {id:40710,name:'Chicago (Brown/Purple)',ll:[41.8968,-87.6359],k:'y',lines:['brown','purple'],side:'left',alt:[['Merchandise Mart', 'next stop south'], ['Sedgwick', 'next stop north, Brown Line']],bus:[['#66 Chicago', 'east to Chicago (Red)']]},
-  {id:40330,name:'Grand (Red)',ll:[41.8917,-87.6280],k:'y',lines:['red'],side:'right',alt:[['Chicago (Red)', 'next stop north'], ['Lake (Red)', 'next stop south']]},
-  {id:41450,name:'Chicago (Red)',ll:[41.8967,-87.6281],k:'y',lines:['red'],side:'right',alt:[['Grand (Red)', 'next stop south'], ['Clark/Division', 'next stop north']],bus:[['#66 Chicago', 'west to Chicago (Brown/Purple)']]},
-  {id:40490,name:'Grand (Blue)',ll:[41.8912,-87.6476],k:'n',lines:['blue'],side:'right',alt:[['Clark/Lake', 'next stop toward Forest Park'], ['Western', '4 stops toward O’Hare']],bus:[['#56 Milwaukee', 'along Milwaukee Ave. to the Loop'], ['#65 Grand', 'east to Grand (Red)']]},
-  {id:41410,name:'Chicago (Blue)',ll:[41.8961,-87.6552],k:'n',lines:['blue'],side:'right',alt:[['Clark/Lake', '2 stops toward Forest Park'], ['Western', '3 stops toward O’Hare']],bus:[['#56 Milwaukee', 'along Milwaukee Ave. to the Loop'], ['#66 Chicago', 'east to Chicago (Brown/Purple) and Chicago (Red)']]},
+  {id:40460,name:'Merchandise Mart',match:'Merchandise Mart',ll:[41.8890,-87.6339],k:'y',lines:['brown','purple'],side:'left',alt:[['Chicago (Brown/Purple)', '0.6 mi · next stop north'], ['Clark/Lake', '0.4 mi · Brown, Purple']]},
+  {id:40710,name:'Chicago (Brown/Purple)',ll:[41.8968,-87.6359],k:'y',lines:['brown','purple'],side:'left',alt:[['Merchandise Mart', '0.6 mi · next stop south'], ['Sedgwick', '1.1 mi · next stop north, Brown Line']],bus:[['#66 Chicago', 'east to Chicago (Red)']]},
+  {id:40330,name:'Grand (Red)',ll:[41.8917,-87.6280],k:'y',lines:['red'],side:'right',alt:[['Chicago (Red)', '0.4 mi · next stop north'], ['Lake (Red)', '0.5 mi · next stop south']]},
+  {id:41450,name:'Chicago (Red)',ll:[41.8967,-87.6281],k:'y',lines:['red'],side:'right',alt:[['Grand (Red)', '0.4 mi · next stop south'], ['Clark/Division', '0.7 mi · next stop north']],bus:[['#66 Chicago', 'west to Chicago (Brown/Purple)']]},
+  {id:40490,name:'Grand (Blue)',ll:[41.8912,-87.6476],k:'n',lines:['blue'],side:'right',alt:[['Clark/Lake', '1.1 mi · next stop toward Forest Park'], ['Western (Blue, O’Hare branch)', '3.1 mi · 4 stops toward O’Hare']],bus:[['#56 Milwaukee', 'along Milwaukee Ave. to the Loop'], ['#65 Grand', 'east to Grand (Red)']]},
+  {id:41410,name:'Chicago (Blue)',ll:[41.8961,-87.6552],k:'n',lines:['blue'],side:'right',alt:[['Clark/Lake', '1.7 mi · 2 stops toward Forest Park'], ['Western (Blue, O’Hare branch)', '2.5 mi · 3 stops toward O’Hare']],bus:[['#56 Milwaukee', 'along Milwaukee Ave. to the Loop'], ['#66 Chicago', 'east to Chicago (Brown/Purple) and Chicago (Red)']]},
 ];
+
+// All stations: generated data, with downtown entries replacing their generated counterparts field by field.
+const OVERRIDE = Object.fromEntries(DOWNTOWN.map(s=>[s.id, s]));
+// Roosevelt's dataset point is the Red Line subway entrance on State; the marker sits between it and the
+// elevated Green/Orange platforms a block east.
+OVERRIDE[41400] = {ll:[41.8674,-87.6268]};
+const STATIONS = CTA_DATA.stations.map(s=>({...s, ...OVERRIDE[s.id]}));
 
 // Metra downtown stations, shown for transfers only (no accessibility data yet).
 // id = GTFS stop_id; ll and lines from Metra static GTFS (published 2026-10-03), except LaSalle Street:
@@ -54,17 +68,18 @@ const METRA = [
 // Track geometry. d = pixel offset to the right of the direction of travel (a number, or one per point);
 // a = draw direction arrows.
 const NW=[41.8857,-87.6338], NE=[41.8857,-87.6261], SE=[41.8768,-87.6261], SW=[41.8768,-87.6338];
-const ROOSEVELT=[41.8674,-87.6262], WEST=[41.8857,-87.6720], TOWER18W=[41.8857,-87.6356];
-// Brown/Purple north branch, south to the NW corner: Franklin from past Chicago Ave to Hubbard, then Wells across the river.
-const N_BRANCH=[[41.9005,-87.6359],[41.8968,-87.6359],[41.8913,-87.6357],[41.8903,-87.6339],NW];
+// Seams with the generated geometry (WEST, ROOSEVELT, the north ends) use GTFS positions so the lines meet.
+const ROOSEVELT=[41.8674,-87.6266], WEST=[41.8851,-87.6720], TOWER18W=[41.8857,-87.6356];
+// Brown/Purple north branch, south to the NW corner: Franklin from past Chicago Ave to Kinzie, then Wells across the river.
+const N_BRANCH=[[41.9005,-87.6366],[41.8975,-87.6366],[41.8965,-87.6357],[41.8903,-87.6355],[41.8894,-87.6340],NW];
 const CW=[NW,NE,SE,SW,NW], CCW=[NW,SW,SE,NE,NW];
 const TRACKS = [
-  {c:'red', p:[[41.9005,-87.6281],[41.8917,-87.6280],[41.8673,-87.6278]], dash:true},
+  {c:'red', p:[[41.9005,-87.6283],[41.8917,-87.6280],[41.8673,-87.6274]], dash:true},
   {c:'blue', p:[[41.8756,-87.6720],[41.8756,-87.6440]]},
   {c:'blue', p:[[41.8756,-87.6440],[41.8757,-87.6294],[41.8857,-87.6294],[41.8857,-87.6390],[41.8890,-87.6440],[41.8912,-87.6476],[41.8961,-87.6552],[41.9000,-87.6613]], dash:true},
   {c:'brown', p:N_BRANCH, d:4},
   {c:'purple', p:N_BRANCH, d:-14},
-  {c:'pink', p:[WEST,NW], d:4},
+  {c:'pink', p:[[41.8852,-87.6701],NW], d:4},  // west end meets the generated Pink branch at Paulina
   {c:'orange', p:[SE,ROOSEVELT], d:9},
   // West of Tower 18, Green and Pink share the Lake St. tracks, so Green sits beside Pink (where Brown sits
   // in the Loop) and jogs out to its Loop position just west of Wells.
@@ -73,6 +88,8 @@ const TRACKS = [
   {c:'pink', p:CW, d:4, a:true},
   {c:'orange', p:CW, d:9, a:true},
   {c:'purple', p:CW, d:14, a:true},
+  // Beyond downtown: generated from CTA GTFS shapes, offsets chosen to meet the pieces above.
+  ...CTA_DATA.lines.map(l=>({c:l.c, p:l.p, d:l.d, dash:!!l.dash})),
 ];
 
 const dark = matchMedia('(prefers-color-scheme: dark)').matches;
@@ -80,10 +97,10 @@ const dark = matchMedia('(prefers-color-scheme: dark)').matches;
 const map = L.map('map',{zoomControl:false});
 L.control.zoom({position:'topright'}).addTo(map);
 // Leave room for the key panel (expanded on desktop, collapsed under 600px).
-// On phones, fit the Loop plus the stations just west of the river; all of them would put it at zoom 13.
+// Opens on downtown. On phones, fit the Loop plus the stations just west of the river.
 const wide = innerWidth >= 600;
 // CTA stations only: the Metra Electric stations east of Wabash would drop a 1400px desktop from zoom 15 to 14.
-map.fitBounds(L.latLngBounds(STATIONS.filter(s=>wide || s.ll[1] > -87.645).map(s=>s.ll)),
+map.fitBounds(L.latLngBounds(DOWNTOWN.filter(s=>wide || s.ll[1] > -87.645).map(s=>s.ll)),
   wide ? {paddingTopLeft:[400,40], paddingBottomRight:[40,40]} : {paddingTopLeft:[20,80], paddingBottomRight:[20,20]});
 // Stadia Maps: works on localhost without a key; production needs the domain registered in the Stadia dashboard.
 L.tileLayer(`https://tiles.stadiamaps.com/tiles/${dark?'alidade_smooth_dark':'alidade_smooth'}/{z}/{x}/{y}{r}.png`,{
@@ -131,7 +148,7 @@ map.on('zoomend', drawTracks);
 drawTracks();
 
 const ICON = {y:'ti-elevator', n:'ti-stairs', c:'ti-barrier-block'};
-const STATUS = {y:'Elevator access', n:'No elevator: stairs only', c:'Closed for reconstruction', out:'Elevator out of service'};
+const STATUS = {y:'Elevator access', n:'No elevator: stairs only', c:'Closed for reconstruction', out:'Elevator out of service', alert:'Accessibility alert'};
 // Alerts like "The Howard-bound platform elevator..." cover one direction only.
 const ONE_PLATFORM = /-bound\b[^.]*platform elevator/i;
 let ALERTS = [];
@@ -149,12 +166,15 @@ function iconFor(s){
 }
 
 function popupFor(s){
-  const chips = s.lines.map(l=>`<span class="chip${l==='pink'?' lt':''}" style="--c:${COLOR[l]}">${LINE_NAME[l]}</span>`).join('');
-  const alerts = alertsFor(s), out = s.k==='y' && alerts.length > 0, st = out ? 'out' : s.k;
+  const chips = s.lines.map(l=>`<span class="chip${LIGHT_CHIP.has(l)?' lt':''}" style="--c:${COLOR[l]}">${LINE_NAME[l]}</span>`).join('');
+  const alerts = alertsFor(s), out = s.k==='y' && alerts.length > 0;
+  // The accessibility feed also carries alerts like "trains will not stop at 43rd"; only say elevator when it is one.
+  const st = !out ? s.k : alerts.some(a=>/elevator/i.test(`${a.headline} ${a.short}`)) ? 'out' : 'alert';
   const oneSide = out && alerts.some(a=>ONE_PLATFORM.test(`${a.headline} ${a.short}`));
   // The alert description already names the station and the elevator; the headline only repeats it.
   const al = alerts.map(a=>`<div class="al">${esc(a.short || a.headline)}</div>`).join('');
-  const tip = oneSide ? `<div class="tip">Affects one platform only. You can use the other platform and change direction at a station below.</div>` : '';
+  // Just the fact: "use the other platform" isn't an option for one-way Loop lines.
+  const tip = oneSide ? `<div class="tip">Only one platform is affected.</div>` : '';
   const list = (title, rows) => rows && rows.length ? `<div class="sec">${title}</div><ul>${rows.map(([n,d])=>`<li><b>${esc(n)}</b> <span class="d">${esc(d)}</span></li>`).join('')}</ul>` : '';
   const show = s.k==='n' || out;
   return `<div class="pop"><h3>${esc(s.name)}</h3><div class="chips">${chips}</div>
@@ -185,8 +205,11 @@ const METRA_ICON = L.divIcon({className:'stn', iconSize:[24,24], iconAnchor:[12,
 METRA.forEach(s=> addStation(s, METRA_ICON, ()=>metraPopup(s), 900));
 
 function updateLabels(){
-  const show = map.getZoom() >= 16;
+  const z = map.getZoom(), show = z >= 16;
   labeled.forEach(m=> show ? m.openTooltip() : m.closeTooltip());
+  // Shrink station markers when zoomed out to the whole system, so they don't pile up.
+  const c = map.getContainer().classList;
+  c.toggle('z-far', z <= 12); c.toggle('z-mid', z === 13);
 }
 map.on('zoomend', updateLabels);
 updateLabels();

@@ -24,6 +24,8 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:14px/1.
 .dot.alert::after{content:"";position:absolute;top:-4px;right:-4px;width:10px;height:10px;border-radius:50%;background:var(--warn);border:2px solid #fff}
 .stn{background:none;border:0}
 .stn .dot{width:24px;height:24px;font-size:15px;box-shadow:0 1px 3px rgba(0,0,0,.35)}
+.z-mid .stn .dot{transform:scale(.7)}
+.z-far .stn .dot{transform:scale(.45)}
 .leaflet-tooltip.lbl{font-size:12px;padding:1px 6px;border-radius:6px}
 .leaflet-popup-content{font-size:13px;line-height:1.4;margin:10px 12px}
 /* Popups follow the page theme (Leaflet's default is always white). */
@@ -33,7 +35,7 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:14px/1.
 .chips{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0 6px}
 .chip{font-size:11px;padding:1px 6px;border-radius:4px;color:#fff;background:var(--c)}
 .chip.lt{color:#222}
-.st{font-weight:600}.st.y{color:var(--ok-text)}.st.n{color:var(--no-text)}.st.c{color:var(--closed-text)}.st.out{color:var(--warn-text)}
+.st{font-weight:600}.st.y{color:var(--ok-text)}.st.n{color:var(--no-text)}.st.c{color:var(--closed-text)}.st.out,.st.alert{color:var(--warn-text)}
 .al{margin:6px 0 0;padding:5px 8px;border-left:3px solid var(--warn);background:rgba(255,152,0,.12);font-size:12px}
 .tip{margin:4px 0 0;font-size:12px;color:var(--muted)}
 .note-p{margin:6px 0 0}
