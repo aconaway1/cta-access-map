@@ -60,6 +60,11 @@ Fixed 2026-10-11 (second pass):
 - Stairs-only stations have an `alt` (nearest step-free alternative, including buses for Grand/Chicago Blue,
   whose nearest Blue Line elevators are Clark/Lake and Western). Bus routes checked on transitchicago.com
   (#56 Milwaukee Jefferson Park–Washington/Wabash, #65 Grand and #66 Chicago to Navy Pier).
+- Elevator stations also have an `alt`, shown only while they have an elevator alert; the popup status
+  switches to amber "Elevator out of service". CTA's alert text never suggests alternatives, but often names
+  one platform ("Howard-bound platform elevator"); `ONE_PLATFORM` detects that and adds a change-direction tip.
+  Neighbor elevator status comes from the city dataset (`8pix-ypme`), e.g. Harrison, Racine and Division (Blue)
+  have none.
 
 Long-term goal: systemwide CTA rail accessibility map (trains only, no buses).
 
@@ -124,4 +129,3 @@ Researched for the accessibility follow-up:
 
 - Load station IDs/coords from the city's open data instead of hand-maintaining them.
 - Show escalator outages too, or alerts for stations just outside the area (Merchandise Mart, Roosevelt).
-- Step-free alternatives for elevator stations while their elevator is out (show `alt`-style text with the alert).

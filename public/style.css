@@ -31,7 +31,7 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:14px/1.
 .chip{font-size:11px;padding:1px 6px;border-radius:4px;color:#fff;background:var(--c)}
 .chip.lt{color:#222}
 .alt{margin:4px 0}
-.st{font-weight:600}.st.y{color:var(--ok)}.st.n{color:var(--no)}.st.c{color:#b07800}
+.st{font-weight:600}.st.y{color:var(--ok)}.st.n{color:var(--no)}.st.c{color:#b07800}.st.out{color:var(--warn-text)}
 .al{margin:6px 0 0;padding:6px 8px;border-left:3px solid var(--warn);background:rgba(255,152,0,.12);font-size:12px}
 .leaflet-bar a.locate{display:flex;align-items:center;justify-content:center;font-size:18px;color:#333}
 .leaflet-bar a.locate.on{color:#1a73e8}

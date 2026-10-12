@@ -4,33 +4,34 @@ const LINE_NAME = {red:'Red',blue:'Blue',brown:'Brown',green:'Green',orange:'Ora
 
 // k: y = elevator, n = stairs only, c = closed. id = CTA station (map) ID used by the alerts feed.
 // match = station name as the alerts feed spells it, only where the name is unique systemwide.
-// alt = nearest step-free alternative, shown in the popup of stairs-only stations.
+// alt = nearest step-free alternative: always shown for stairs-only stations, and for elevator stations
+// while an elevator alert is active.
 const STATIONS = [
-  {id:40380,name:'Clark/Lake',match:'Clark/Lake',ll:[41.8857,-87.6309],k:'y',lines:['blue','brown','green','orange','pink','purple'],side:'right',note:'Elevated platforms and Blue Line subway both have elevators.'},
+  {id:40380,name:'Clark/Lake',match:'Clark/Lake',ll:[41.8857,-87.6309],k:'y',lines:['blue','brown','green','orange','pink','purple'],side:'right',note:'Elevated platforms and Blue Line subway both have elevators.',alt:'Elevated: Washington/Wabash (all lines here; State/Lake is closed), Washington/Wells (Brown, Orange, Pink, Purple) or Clinton (Green/Pink). Blue Line: Jackson (Blue), 3 stops toward Forest Park, or Western, 5 stops toward O\'Hare.'},
   {id:40260,name:'State/Lake',match:'State/Lake',ll:[41.8858,-87.6278],k:'c',lines:['brown','green','orange','pink','purple'],side:'right',note:'Closed since Jan. 5, 2026 for full rebuild; reopening expected 2029. Trains bypass it. Use Washington/Wabash or Clark/Lake.'},
-  {id:41660,name:'Lake (Red)',match:'Lake',ll:[41.8846,-87.6278],k:'y',lines:['red'],side:'right',note:'To transfer to the elevated lines while State/Lake is closed, CTA says to use Washington/Wabash.'},
-  {id:41700,name:'Washington/Wabash',match:'Washington/Wabash',ll:[41.8831,-87.6261],k:'y',lines:['brown','green','orange','pink','purple'],side:'right'},
+  {id:41660,name:'Lake (Red)',match:'Lake',ll:[41.8846,-87.6278],k:'y',lines:['red'],side:'right',note:'To transfer to the elevated lines while State/Lake is closed, CTA says to use Washington/Wabash.',alt:'Grand (Red), next stop north, or Jackson (Red), 2 stops south.'},
+  {id:41700,name:'Washington/Wabash',match:'Washington/Wabash',ll:[41.8831,-87.6261],k:'y',lines:['brown','green','orange','pink','purple'],side:'right',alt:'Clark/Lake (all lines here; State/Lake is closed), Harold Washington Library (Brown, Orange, Pink, Purple) or Roosevelt (Green, Orange). Adams/Wabash has no elevator.'},
   {id:40680,name:'Adams/Wabash',match:'Adams/Wabash',ll:[41.8794,-87.6261],k:'n',lines:['brown','green','orange','pink','purple'],side:'right',alt:'Washington/Wabash, 2 blocks north, serves the same lines. Harold Washington Library also has elevators, but Green doesn\'t stop there.'},
-  {id:40850,name:'Harold Washington Library',match:'Harold Washington Library-State/Van Buren',ll:[41.8768,-87.6281],k:'y',lines:['brown','orange','pink','purple'],side:'bottom'},
+  {id:40850,name:'Harold Washington Library',match:'Harold Washington Library-State/Van Buren',ll:[41.8768,-87.6281],k:'y',lines:['brown','orange','pink','purple'],side:'bottom',alt:'Quincy or Washington/Wabash (same lines; LaSalle/Van Buren and Adams/Wabash in between have no elevators). Orange Line: Roosevelt.'},
   {id:40160,name:'LaSalle/Van Buren',match:'LaSalle/Van Buren',ll:[41.8768,-87.6318],k:'n',lines:['brown','orange','pink','purple'],side:'top',alt:'Quincy (Wells St.) or Harold Washington Library (State St.), same lines.'},
-  {id:40040,name:'Quincy',match:'Quincy/Wells',ll:[41.8786,-87.6338],k:'y',lines:['brown','orange','pink','purple'],side:'left'},
-  {id:40730,name:'Washington/Wells',match:'Washington/Wells',ll:[41.8829,-87.6338],k:'y',lines:['brown','orange','pink','purple'],side:'left'},
-  {id:40560,name:'Jackson (Red)',ll:[41.8783,-87.6277],k:'y',lines:['red'],side:'right'},
+  {id:40040,name:'Quincy',match:'Quincy/Wells',ll:[41.8786,-87.6338],k:'y',lines:['brown','orange','pink','purple'],side:'left',alt:'Washington/Wells (next stop, same lines) or Harold Washington Library.'},
+  {id:40730,name:'Washington/Wells',match:'Washington/Wells',ll:[41.8829,-87.6338],k:'y',lines:['brown','orange','pink','purple'],side:'left',alt:'Quincy (next stop, same lines) or Clark/Lake.'},
+  {id:40560,name:'Jackson (Red)',ll:[41.8783,-87.6277],k:'y',lines:['red'],side:'right',alt:'Lake (Red), 2 stops north, or Roosevelt, 2 stops south (Harrison has no elevator).'},
   {id:41090,name:'Monroe (Red)',ll:[41.8807,-87.6277],k:'n',lines:['red'],side:'right',alt:'Jackson (Red), 2 blocks south.'},
   {id:40370,name:'Washington (Blue)',ll:[41.8833,-87.6294],k:'n',lines:['blue'],side:'left',alt:'Clark/Lake, 2 blocks north (Blue Line platform has an elevator).'},
   {id:40790,name:'Monroe (Blue)',ll:[41.8806,-87.6294],k:'n',lines:['blue'],side:'left',alt:'Jackson (Blue), 2 blocks south.'},
-  {id:40070,name:'Jackson (Blue)',ll:[41.8782,-87.6294],k:'y',lines:['blue'],side:'left'},
+  {id:40070,name:'Jackson (Blue)',ll:[41.8782,-87.6294],k:'y',lines:['blue'],side:'left',alt:'Clark/Lake, 3 stops toward O\'Hare, or UIC-Halsted, 3 stops toward Forest Park.'},
   {id:41340,name:'LaSalle (Blue)',ll:[41.8757,-87.6317],k:'n',lines:['blue'],side:'bottom',alt:'Jackson (Blue), the next stop toward O\'Hare.'},
   {id:40430,name:'Clinton (Blue)',ll:[41.8756,-87.6407],k:'n',lines:['blue'],side:'bottom',note:'No elevator, steep stairs. For step-free access to Union Station, use Clinton on the Green/Pink.',alt:'UIC-Halsted, the next stop toward Forest Park, or Jackson (Blue), 2 stops toward O\'Hare.'},
-  {id:41160,name:'Clinton (Green/Pink)',ll:[41.8856,-87.6416],k:'y',lines:['green','pink'],side:'top'},
-  {id:41510,name:'Morgan',match:'Morgan',ll:[41.8856,-87.6524],k:'y',lines:['green','pink'],side:'top'},
-  {id:40170,name:'Ashland (Green/Pink)',ll:[41.8853,-87.6667],k:'y',lines:['green','pink'],side:'top'},
-  {id:40350,name:'UIC-Halsted',match:'UIC-Halsted',ll:[41.8757,-87.6492],k:'y',lines:['blue'],side:'bottom'},
+  {id:41160,name:'Clinton (Green/Pink)',ll:[41.8856,-87.6416],k:'y',lines:['green','pink'],side:'top',alt:'Clark/Lake (next stop east) or Morgan (next stop west).'},
+  {id:41510,name:'Morgan',match:'Morgan',ll:[41.8856,-87.6524],k:'y',lines:['green','pink'],side:'top',alt:'Clinton (Green/Pink) or Ashland (Green/Pink), the next stops either way.'},
+  {id:40170,name:'Ashland (Green/Pink)',ll:[41.8853,-87.6667],k:'y',lines:['green','pink'],side:'top',alt:'Morgan (next stop east). West: Damen (Green) or Polk (Pink), each the next stop.'},
+  {id:40350,name:'UIC-Halsted',match:'UIC-Halsted',ll:[41.8757,-87.6492],k:'y',lines:['blue'],side:'bottom',alt:'Jackson (Blue), 3 stops toward O\'Hare, or Illinois Medical District, 2 stops toward Forest Park (Racine has no elevator).'},
   // North of the river. No match names: Grand and Chicago each exist on several lines.
-  {id:40460,name:'Merchandise Mart',match:'Merchandise Mart',ll:[41.8890,-87.6339],k:'y',lines:['brown','purple'],side:'left'},
-  {id:40710,name:'Chicago (Brown/Purple)',ll:[41.8968,-87.6359],k:'y',lines:['brown','purple'],side:'left'},
-  {id:40330,name:'Grand (Red)',ll:[41.8917,-87.6280],k:'y',lines:['red'],side:'right'},
-  {id:41450,name:'Chicago (Red)',ll:[41.8967,-87.6281],k:'y',lines:['red'],side:'right'},
+  {id:40460,name:'Merchandise Mart',match:'Merchandise Mart',ll:[41.8890,-87.6339],k:'y',lines:['brown','purple'],side:'left',alt:'Chicago (Brown/Purple), next stop north, or the first Loop stops: Washington/Wells (Brown) and Clark/Lake (Purple).'},
+  {id:40710,name:'Chicago (Brown/Purple)',ll:[41.8968,-87.6359],k:'y',lines:['brown','purple'],side:'left',alt:'Merchandise Mart (next stop south) or Sedgwick (next stop north, Brown Line). Bus: #66 Chicago to Chicago (Red).'},
+  {id:40330,name:'Grand (Red)',ll:[41.8917,-87.6280],k:'y',lines:['red'],side:'right',alt:'Chicago (Red), next stop north, or Lake (Red), next stop south.'},
+  {id:41450,name:'Chicago (Red)',ll:[41.8967,-87.6281],k:'y',lines:['red'],side:'right',alt:'Grand (Red), next stop south, or Clark/Division, next stop north. Bus: #66 Chicago to Chicago (Brown/Purple).'},
   {id:40490,name:'Grand (Blue)',ll:[41.8912,-87.6476],k:'n',lines:['blue'],side:'right',alt:'Clark/Lake (next stop toward Forest Park) or Western (4 stops toward O\'Hare). Bus: #56 Milwaukee runs along Milwaukee Ave to the Loop; #65 Grand goes east to Grand (Red). All CTA buses are accessible.'},
   {id:41410,name:'Chicago (Blue)',ll:[41.8961,-87.6552],k:'n',lines:['blue'],side:'right',alt:'Clark/Lake (2 stops toward Forest Park) or Western (3 stops toward O\'Hare). Bus: #56 Milwaukee runs along Milwaukee Ave to the Loop; #66 Chicago goes east to Chicago (Brown/Purple) and Chicago (Red). All CTA buses are accessible.'},
 ];
@@ -130,7 +131,9 @@ map.on('zoomend', drawTracks);
 drawTracks();
 
 const ICON = {y:'ti-elevator', n:'ti-stairs', c:'ti-barrier-block'};
-const STATUS = {y:'Elevator access', n:'No elevator: stairs only', c:'Closed for reconstruction'};
+const STATUS = {y:'Elevator access', n:'No elevator: stairs only', c:'Closed for reconstruction', out:'Elevator out of service'};
+// Alerts like "The Howard-bound platform elevator..." cover one direction only.
+const ONE_PLATFORM = /-bound\b[^.]*platform elevator/i;
 let ALERTS = [];
 const markers = [];
 
@@ -147,10 +150,14 @@ function iconFor(s){
 
 function popupFor(s){
   const chips = s.lines.map(l=>`<span class="chip${l==='pink'?' lt':''}" style="--c:${COLOR[l]}">${LINE_NAME[l]}</span>`).join('');
-  const al = alertsFor(s).map(a=>`<div class="al"><b>${esc(a.headline)}</b>${a.short?`<br>${esc(a.short)}`:''}</div>`).join('');
+  const alerts = alertsFor(s), out = s.k==='y' && alerts.length > 0;
+  const al = alerts.map(a=>`<div class="al"><b>${esc(a.headline)}</b>${a.short?`<br>${esc(a.short)}`:''}</div>`).join('');
+  const st = out ? 'out' : s.k;
+  const alt = s.alt && (s.k==='n' || out) ? `<div class="alt"><b>${out?'While the elevator is out':'Step-free alternative'}:</b> ${esc(s.alt)}</div>` : '';
+  const tip = out && alerts.some(a=>ONE_PLATFORM.test(`${a.headline} ${a.short}`))
+    ? `<div class="alt">Only one platform's elevator is out. To travel in that direction, use the other platform and change direction at the next station with elevators.</div>` : '';
   return `<div class="pop"><h3>${esc(s.name)}</h3><div class="chips">${chips}</div>
-    <div class="st ${s.k}">${STATUS[s.k]}</div>${s.alt?`<div class="alt"><b>Step-free alternative:</b> ${esc(s.alt)}</div>`:''}
-    ${s.note?`<div>${esc(s.note)}</div>`:''}${al}</div>`;
+    <div class="st ${st}">${STATUS[st]}</div>${al}${alt}${tip}${s.note?`<div>${esc(s.note)}</div>`:''}</div>`;
 }
 function esc(t){return String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
