@@ -1,3 +1,6 @@
 name = "cta-access-map"
-pages_build_output_dir = "public"
+main = "src/worker.js"
 compatibility_date = "2026-10-06"
+
+[assets]
+directory = "./public"

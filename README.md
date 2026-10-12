@@ -5,25 +5,24 @@ Leaflet map of CTA L stations in the Loop and West Loop showing elevator access,
 ## Layout
 
 ```
-public/                  static site (the Pages output directory)
+public/                  static site (served by Workers static assets)
   index.html             page + key panel
   style.css
   app.js                 stations, track geometry, map, alert polling
-functions/api/elevators.js   Pages Function proxying CTA accessibility alerts
+src/worker.js            Worker entry: routes /api/elevators (static files never reach it)
+src/elevators.js         proxies and normalizes CTA accessibility alerts
 ```
 
-## Deploy (Cloudflare Pages, no build step)
+## Deploy (Cloudflare Workers with static assets, no build step)
 
-```
-npx wrangler pages project create cta-access-map --production-branch main
-npx wrangler pages deploy
-```
+The repo is connected to a Cloudflare Worker (Workers Builds): pushes to `main` run `npx wrangler deploy`.
+Manual deploy: `npx wrangler deploy`. Local dev: `npx wrangler dev` (serves on :8787 with the API).
 
-`wrangler.toml` sets the project name, output directory (`public`) and compatibility date. Local dev: `npx wrangler pages dev` (serves on :8788 with the Function).
+`wrangler.toml` sets the Worker name, entry point, assets directory (`public`) and compatibility date. The
+Worker name in the Cloudflare dashboard must match `name` there.
 
-**Basemap:** Stadia Maps (Alidade Smooth / Smooth Dark). Works on `localhost` with no key; for production, create a free Stadia account and add the `*.pages.dev` hostname under Authentication → domains, or tiles return 401. (CARTO's `light_all`/`dark_all` now return an "API KEY REQUIRED" placeholder, which is why it was replaced.)
+**Basemap:** Stadia Maps (Alidade Smooth / Smooth Dark). Works on `localhost` with no key; for production, create a free Stadia account and add the `cta-access-map.<account>.workers.dev` hostname under Authentication → domains, or tiles return 401. (CARTO's `light_all`/`dark_all` now return an "API KEY REQUIRED" placeholder, which is why it was replaced.)
 
-Or connect the GitHub repo as a **Pages** project (Workers & Pages → Create → Pages tab → Import an existing Git repository) with build command empty and output directory `public`. Don't use the Workers import: it runs `npx wrangler deploy`, which fails with "Missing entry-point to Worker script or to assets directory". The `functions/` folder is picked up automatically and serves `/api/elevators`.
 
 ## Notes
 

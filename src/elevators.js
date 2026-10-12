@@ -1,10 +1,10 @@
-// Cloudflare Pages Function: GET /api/elevators
+// GET /api/elevators
 // Proxies CTA's Customer Alerts API (accessibility alerts only), normalizes it, and caches for 2 minutes.
 const SOURCE = 'https://www.transitchicago.com/api/1.0/alerts.aspx?outputType=JSON&accessibility=TRUE&activeonly=TRUE';
 
 const arr = x => x == null ? [] : Array.isArray(x) ? x : [x];
 
-export async function onRequestGet() {
+export async function elevators() {
   try {
     const r = await fetch(SOURCE, { cf: { cacheTtl: 120, cacheEverything: true } });
     if (!r.ok) throw new Error(`CTA returned ${r.status}`);

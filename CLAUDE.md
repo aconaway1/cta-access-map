@@ -4,34 +4,36 @@ Context handoff from a claude.ai chat (2026-10-11). Read this before touching th
 
 ## What this is
 
-A Cloudflare Pages web app: a Leaflet map of CTA 'L' stations in the Loop and West Loop showing
-elevator access, line colors, Loop direction of travel, and live elevator outages. Deployed like the
-owner's other Pages projects (ronconrails.com, the CML Springfield schedule map): static site +
-Pages Functions, `*.pages.dev` subdomain, no custom domain, no build step.
+A Cloudflare Worker with static assets: a Leaflet map of CTA 'L' stations in the Loop and West Loop showing
+elevator access, line colors, Loop direction of travel, and live elevator outages. Static site +
+a small Worker for the API, `*.workers.dev` subdomain, no custom domain, no build step. The owner's older
+projects (ronconrails.com, the CML Springfield schedule map) are on Pages, but Cloudflare now treats Pages as
+legacy ("applications" are Workers), so this one is a Worker; don't suggest Pages.
 
 Owner: Aaron (network engineer). Prefers direct, technically precise communication.
 
 ## Files
 
-- `public/` — the static site (Pages output dir; `functions/` stays at the repo root):
+- `public/` — the static site (`[assets] directory`; the assets layer serves these before the Worker runs):
 - `public/index.html` — page shell, collapsible key panel (auto-collapsed under 600px width)
 - `public/style.css` — light/dark via `prefers-color-scheme`
 - `public/app.js` — `STATIONS` data, `METRA` downtown stations, `TRACKS` geometry, map setup, pixel-offset track rendering, alert polling (5 min), locate-me control (watchPosition; position stays client-side)
-- `functions/api/elevators.js` — `GET /api/elevators`; proxies CTA Customer Alerts API
+- `src/worker.js` — Worker entry; routes `GET /api/elevators`, 405 for other methods, 404 for anything else
+- `src/elevators.js` — `GET /api/elevators`; proxies CTA Customer Alerts API
   (`accessibility=TRUE&activeonly=TRUE`, JSON), normalizes to `{updated, alerts:[{id,headline,short,stations:[{id,name}]}]}`, 120s cache
-- `README.md` — deploy and dev commands (`npx wrangler pages deploy`, `npx wrangler pages dev`)
+- `README.md` — deploy and dev commands (`npx wrangler deploy`, `npx wrangler dev`)
 
 CDNs: Leaflet 1.9.4 (cdnjs), leaflet-polylinedecorator 1.6.0 (unpkg), Tabler icons webfont (jsdelivr).
 Basemap: Stadia Maps alidade_smooth / alidade_smooth_dark (CARTO now requires an API key). Production
-needs the pages.dev domain registered in the Stadia dashboard. `wrangler.toml` holds name, output dir, compat date.
+needs the workers.dev hostname registered in the Stadia dashboard. `wrangler.toml` holds name, output dir, compat date.
 
 ## Status (2026-10-11): runs locally, not yet deployed
 
-GitHub: https://github.com/aconaway1/cta-access-map (public). First Cloudflare attempt was created as a
-Worker (Workers Builds → `npx wrangler deploy` → "Missing entry-point"); it must be a Pages project,
-output dir `public`.
+GitHub: https://github.com/aconaway1/cta-access-map (public). Connected to a Cloudflare Worker via
+Workers Builds. The first build failed ("Missing entry-point") because the repo was still Pages-shaped;
+converted to Workers static assets on 2026-10-11.
 
-Tested with `npx wrangler pages dev` + headless Chromium (Playwright's cached build; the Chrome extension
+Tested with `npx wrangler dev` (Pages-era runs used `wrangler pages dev`) + headless Chromium (Playwright's cached build; the Chrome extension
 wasn't connected). No console errors or failed requests, light and dark.
 
 - `/api/elevators` verified against the live feed: shape matches (`CTAAlerts.Alert[]` →
