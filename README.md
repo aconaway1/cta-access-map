@@ -1,6 +1,6 @@
 # Loop L access map
 
-Leaflet map of CTA L stations in the Loop and West Loop showing elevator access, line colors, Loop direction of travel, and live elevator outages.
+Leaflet map of CTA L stations in the Loop, West Loop and River North showing elevator access, line colors, Loop direction of travel, and live elevator outages.
 
 ## Layout
 

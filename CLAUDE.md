@@ -4,7 +4,7 @@ Context handoff from a claude.ai chat (2026-10-11). Read this before touching th
 
 ## What this is
 
-A Cloudflare Worker with static assets: a Leaflet map of CTA 'L' stations in the Loop and West Loop showing
+A Cloudflare Worker with static assets: a Leaflet map of CTA 'L' stations in the Loop, West Loop and River North (north of the river to Chicago Ave) showing
 elevator access, line colors, Loop direction of travel, and live elevator outages. Static site +
 a small Worker for the API, `*.workers.dev` subdomain, no custom domain, no build step. The owner's older
 projects (ronconrails.com, the CML Springfield schedule map) are on Pages, but Cloudflare now treats Pages as
@@ -39,8 +39,9 @@ wasn't connected). No console errors or failed requests, light and dark.
 
 - `/api/elevators` verified against the live feed: shape matches (`CTAAlerts.Alert[]` →
   `ImpactedService.Service[]`, `ServiceType` is `T`/`R`/`B`, `T` ServiceId = station map ID as a string).
-- All 20 station map IDs verified against the city L stops dataset (`8pix-ypme`); its `ada` flag agrees
-  with every `k`. Feed/dataset name for Quincy is "Quincy/Wells" (match fixed).
+- All 26 station map IDs verified against the city L stops dataset (`8pix-ypme`); its `ada` flag agrees
+  with every `k`. The six River North stations (added 2026-10-11) took IDs, coordinates and `k` straight
+  from it; Grand and Chicago have no `match` name because those names repeat across lines. Feed/dataset name for Quincy is "Quincy/Wells" (match fixed).
 - Labels: no marker/label overlaps at zoom 16–17.
 - Fixed after first run: basemap (CARTO → Stadia), zoom control moved top-right (panel covered it),
   Red Line straightened onto State, initial view via fitBounds (Loop-only on phones).
@@ -56,10 +57,10 @@ Long-term goal: systemwide CTA rail accessibility map (trains only, no buses).
 
 Elevator (`k:'y'`): Clark/Lake (elevated + Blue subway), Washington/Wabash, Harold Washington Library,
 Quincy, Washington/Wells, Lake (Red), Jackson (Red), Jackson (Blue), Clinton (Green/Pink), Morgan,
-Ashland (Green/Pink), UIC-Halsted.
+Ashland (Green/Pink), UIC-Halsted, Merchandise Mart, Chicago (Brown/Purple), Grand (Red), Chicago (Red).
 
 Stairs only (`k:'n'`): LaSalle/Van Buren, Adams/Wabash, Monroe (Red), Washington (Blue), Monroe (Blue),
-LaSalle (Blue), Clinton (Blue).
+LaSalle (Blue), Clinton (Blue), Grand (Blue), Chicago (Blue).
 
 Closed (`k:'c'`): State/Lake elevated — closed Jan 5, 2026 for full reconstruction, reopening expected
 2029 with elevators and an ADA connection to the Lake Red Line station. CTA directs Lake (Red) ↔ elevated
@@ -75,9 +76,13 @@ spot-check on transitchicago.com station pages.
 - Brown: counterclockwise, Outer Loop. Enters/exits at Tower 18 (NW) via Wells.
 - Orange, Pink, Purple Express: clockwise, Inner Loop. Orange enters at Tower 12 (SE) from Roosevelt;
   Pink enters at Tower 18 from the west on Lake; Purple at Tower 18 from the north.
-- Green: through-routed on Lake and Wabash, both directions (drawn as two offset lines with opposite arrows).
-- Red: subway under State (dashed). Blue: subway under Dearborn, west along Congress; at-grade in the
-  Eisenhower median west of the river (solid).
+- Arrows only on the Loop-circling lines (Brown, Orange, Pink, Purple). Green, Red and Blue run both ways and
+  get one line with no arrows, the owner's call (2026-10-11).
+- Brown/Purple north branch (`N_BRANCH`): Wells across the river past Merchandise Mart, jog to Franklin at
+  Hubbard, north on Franklin past Chicago Ave (map edge ~41.9005).
+- Red: subway under State (dashed), north to past Chicago Ave. Blue: subway under Dearborn, west along Congress;
+  at-grade in the Eisenhower median west of the river (solid); north end under Lake then northwest under
+  Milwaukee past Grand and Chicago.
 - `d` in `TRACKS` is a pixel offset to the right of travel direction; `offsetPath()` recomputes miter
   offsets in layer-pixel space on every `zoomend`, and arrow decorators are rebuilt with it.
   Closed paths (first point == last) are handled for the rectangle.

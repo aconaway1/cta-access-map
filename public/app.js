@@ -25,6 +25,13 @@ const STATIONS = [
   {id:41510,name:'Morgan',match:'Morgan',ll:[41.8856,-87.6524],k:'y',lines:['green','pink'],side:'top'},
   {id:40170,name:'Ashland (Green/Pink)',ll:[41.8853,-87.6667],k:'y',lines:['green','pink'],side:'top'},
   {id:40350,name:'UIC-Halsted',match:'UIC-Halsted',ll:[41.8757,-87.6492],k:'y',lines:['blue'],side:'bottom'},
+  // North of the river. No match names: Grand and Chicago each exist on several lines.
+  {id:40460,name:'Merchandise Mart',match:'Merchandise Mart',ll:[41.8890,-87.6339],k:'y',lines:['brown','purple'],side:'left'},
+  {id:40710,name:'Chicago (Brown/Purple)',ll:[41.8968,-87.6359],k:'y',lines:['brown','purple'],side:'left'},
+  {id:40330,name:'Grand (Red)',ll:[41.8917,-87.6280],k:'y',lines:['red'],side:'right'},
+  {id:41450,name:'Chicago (Red)',ll:[41.8967,-87.6281],k:'y',lines:['red'],side:'right'},
+  {id:40490,name:'Grand (Blue)',ll:[41.8912,-87.6476],k:'n',lines:['blue'],side:'right'},
+  {id:41410,name:'Chicago (Blue)',ll:[41.8961,-87.6552],k:'n',lines:['blue'],side:'right'},
 ];
 
 // Metra downtown stations, shown for transfers only (no accessibility data yet).
@@ -44,18 +51,19 @@ const METRA = [
 
 // Track geometry. d = pixel offset to the right of the direction of travel; a = draw direction arrows.
 const NW=[41.8857,-87.6338], NE=[41.8857,-87.6261], SE=[41.8768,-87.6261], SW=[41.8768,-87.6338];
-const ROOSEVELT=[41.8674,-87.6262], WEST=[41.8857,-87.6720], NORTH=[41.8925,-87.6339];
+const ROOSEVELT=[41.8674,-87.6262], WEST=[41.8857,-87.6720];
+// Brown/Purple north branch, south to the NW corner: Franklin from past Chicago Ave to Hubbard, then Wells across the river.
+const N_BRANCH=[[41.9005,-87.6359],[41.8968,-87.6359],[41.8913,-87.6357],[41.8903,-87.6339],NW];
 const CW=[NW,NE,SE,SW,NW], CCW=[NW,SW,SE,NE,NW];
 const TRACKS = [
-  {c:'red', p:[[41.8925,-87.6278],[41.8673,-87.6278]], dash:true},
+  {c:'red', p:[[41.9005,-87.6281],[41.8917,-87.6280],[41.8673,-87.6278]], dash:true},
   {c:'blue', p:[[41.8756,-87.6720],[41.8756,-87.6440]]},
-  {c:'blue', p:[[41.8756,-87.6440],[41.8757,-87.6294],[41.8857,-87.6294],[41.8857,-87.6390],[41.8890,-87.6440]], dash:true},
-  {c:'brown', p:[NORTH,NW], d:4},
-  {c:'purple', p:[NORTH,NW], d:-14},
+  {c:'blue', p:[[41.8756,-87.6440],[41.8757,-87.6294],[41.8857,-87.6294],[41.8857,-87.6390],[41.8890,-87.6440],[41.8912,-87.6476],[41.8961,-87.6552],[41.9000,-87.6613]], dash:true},
+  {c:'brown', p:N_BRANCH, d:4},
+  {c:'purple', p:N_BRANCH, d:-14},
   {c:'pink', p:[WEST,NW], d:4},
   {c:'orange', p:[SE,ROOSEVELT], d:9},
-  {c:'green', p:[WEST,NW,NE,SE,ROOSEVELT], d:-10, a:true},
-  {c:'green', p:[ROOSEVELT,SE,NE,NW,WEST], d:15, a:true},
+  {c:'green', p:[WEST,NW,NE,SE,ROOSEVELT], d:-12},
   {c:'brown', p:CCW, d:4, a:true},
   {c:'pink', p:CW, d:4, a:true},
   {c:'orange', p:CW, d:9, a:true},
@@ -67,7 +75,7 @@ const dark = matchMedia('(prefers-color-scheme: dark)').matches;
 const map = L.map('map',{zoomControl:false});
 L.control.zoom({position:'topright'}).addTo(map);
 // Leave room for the key panel (expanded on desktop, collapsed under 600px).
-// On phones, fit the Loop plus the stations just west of the river; all 20 would put it at zoom 13.
+// On phones, fit the Loop plus the stations just west of the river; all of them would put it at zoom 13.
 const wide = innerWidth >= 600;
 // CTA stations only: the Metra Electric stations east of Wabash would drop a 1400px desktop from zoom 15 to 14.
 map.fitBounds(L.latLngBounds(STATIONS.filter(s=>wide || s.ll[1] > -87.645).map(s=>s.ll)),
