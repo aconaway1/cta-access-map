@@ -4,23 +4,24 @@ const LINE_NAME = {red:'Red',blue:'Blue',brown:'Brown',green:'Green',orange:'Ora
 
 // k: y = elevator, n = stairs only, c = closed. id = CTA station (map) ID used by the alerts feed.
 // match = station name as the alerts feed spells it, only where the name is unique systemwide.
+// alt = nearest step-free alternative, shown in the popup of stairs-only stations.
 const STATIONS = [
   {id:40380,name:'Clark/Lake',match:'Clark/Lake',ll:[41.8857,-87.6309],k:'y',lines:['blue','brown','green','orange','pink','purple'],side:'right',note:'Elevated platforms and Blue Line subway both have elevators.'},
   {id:40260,name:'State/Lake',match:'State/Lake',ll:[41.8858,-87.6278],k:'c',lines:['brown','green','orange','pink','purple'],side:'right',note:'Closed since Jan. 5, 2026 for full rebuild; reopening expected 2029. Trains bypass it. Use Washington/Wabash or Clark/Lake.'},
   {id:41660,name:'Lake (Red)',match:'Lake',ll:[41.8846,-87.6278],k:'y',lines:['red'],side:'right',note:'To transfer to the elevated lines while State/Lake is closed, CTA says to use Washington/Wabash.'},
   {id:41700,name:'Washington/Wabash',match:'Washington/Wabash',ll:[41.8831,-87.6261],k:'y',lines:['brown','green','orange','pink','purple'],side:'right'},
-  {id:40680,name:'Adams/Wabash',match:'Adams/Wabash',ll:[41.8794,-87.6261],k:'n',lines:['brown','green','orange','pink','purple'],side:'right'},
+  {id:40680,name:'Adams/Wabash',match:'Adams/Wabash',ll:[41.8794,-87.6261],k:'n',lines:['brown','green','orange','pink','purple'],side:'right',alt:'Washington/Wabash, 2 blocks north, serves the same lines. Harold Washington Library also has elevators, but Green doesn\'t stop there.'},
   {id:40850,name:'Harold Washington Library',match:'Harold Washington Library-State/Van Buren',ll:[41.8768,-87.6281],k:'y',lines:['brown','orange','pink','purple'],side:'bottom'},
-  {id:40160,name:'LaSalle/Van Buren',match:'LaSalle/Van Buren',ll:[41.8768,-87.6318],k:'n',lines:['brown','orange','pink','purple'],side:'top'},
+  {id:40160,name:'LaSalle/Van Buren',match:'LaSalle/Van Buren',ll:[41.8768,-87.6318],k:'n',lines:['brown','orange','pink','purple'],side:'top',alt:'Quincy (Wells St.) or Harold Washington Library (State St.), same lines.'},
   {id:40040,name:'Quincy',match:'Quincy/Wells',ll:[41.8786,-87.6338],k:'y',lines:['brown','orange','pink','purple'],side:'left'},
   {id:40730,name:'Washington/Wells',match:'Washington/Wells',ll:[41.8829,-87.6338],k:'y',lines:['brown','orange','pink','purple'],side:'left'},
   {id:40560,name:'Jackson (Red)',ll:[41.8783,-87.6277],k:'y',lines:['red'],side:'right'},
-  {id:41090,name:'Monroe (Red)',ll:[41.8807,-87.6277],k:'n',lines:['red'],side:'right'},
-  {id:40370,name:'Washington (Blue)',ll:[41.8833,-87.6294],k:'n',lines:['blue'],side:'left'},
-  {id:40790,name:'Monroe (Blue)',ll:[41.8806,-87.6294],k:'n',lines:['blue'],side:'left'},
+  {id:41090,name:'Monroe (Red)',ll:[41.8807,-87.6277],k:'n',lines:['red'],side:'right',alt:'Jackson (Red), 2 blocks south.'},
+  {id:40370,name:'Washington (Blue)',ll:[41.8833,-87.6294],k:'n',lines:['blue'],side:'left',alt:'Clark/Lake, 2 blocks north (Blue Line platform has an elevator).'},
+  {id:40790,name:'Monroe (Blue)',ll:[41.8806,-87.6294],k:'n',lines:['blue'],side:'left',alt:'Jackson (Blue), 2 blocks south.'},
   {id:40070,name:'Jackson (Blue)',ll:[41.8782,-87.6294],k:'y',lines:['blue'],side:'left'},
-  {id:41340,name:'LaSalle (Blue)',ll:[41.8757,-87.6317],k:'n',lines:['blue'],side:'bottom'},
-  {id:40430,name:'Clinton (Blue)',ll:[41.8756,-87.6407],k:'n',lines:['blue'],side:'bottom',note:'No elevator, steep stairs. For step-free access to Union Station, use Clinton on the Green/Pink.'},
+  {id:41340,name:'LaSalle (Blue)',ll:[41.8757,-87.6317],k:'n',lines:['blue'],side:'bottom',alt:'Jackson (Blue), the next stop toward O\'Hare.'},
+  {id:40430,name:'Clinton (Blue)',ll:[41.8756,-87.6407],k:'n',lines:['blue'],side:'bottom',note:'No elevator, steep stairs. For step-free access to Union Station, use Clinton on the Green/Pink.',alt:'UIC-Halsted, the next stop toward Forest Park, or Jackson (Blue), 2 stops toward O\'Hare.'},
   {id:41160,name:'Clinton (Green/Pink)',ll:[41.8856,-87.6416],k:'y',lines:['green','pink'],side:'top'},
   {id:41510,name:'Morgan',match:'Morgan',ll:[41.8856,-87.6524],k:'y',lines:['green','pink'],side:'top'},
   {id:40170,name:'Ashland (Green/Pink)',ll:[41.8853,-87.6667],k:'y',lines:['green','pink'],side:'top'},
@@ -30,8 +31,8 @@ const STATIONS = [
   {id:40710,name:'Chicago (Brown/Purple)',ll:[41.8968,-87.6359],k:'y',lines:['brown','purple'],side:'left'},
   {id:40330,name:'Grand (Red)',ll:[41.8917,-87.6280],k:'y',lines:['red'],side:'right'},
   {id:41450,name:'Chicago (Red)',ll:[41.8967,-87.6281],k:'y',lines:['red'],side:'right'},
-  {id:40490,name:'Grand (Blue)',ll:[41.8912,-87.6476],k:'n',lines:['blue'],side:'right'},
-  {id:41410,name:'Chicago (Blue)',ll:[41.8961,-87.6552],k:'n',lines:['blue'],side:'right'},
+  {id:40490,name:'Grand (Blue)',ll:[41.8912,-87.6476],k:'n',lines:['blue'],side:'right',alt:'Clark/Lake (next stop toward Forest Park) or Western (4 stops toward O\'Hare). Bus: #56 Milwaukee runs along Milwaukee Ave to the Loop; #65 Grand goes east to Grand (Red). All CTA buses are accessible.'},
+  {id:41410,name:'Chicago (Blue)',ll:[41.8961,-87.6552],k:'n',lines:['blue'],side:'right',alt:'Clark/Lake (2 stops toward Forest Park) or Western (3 stops toward O\'Hare). Bus: #56 Milwaukee runs along Milwaukee Ave to the Loop; #66 Chicago goes east to Chicago (Brown/Purple) and Chicago (Red). All CTA buses are accessible.'},
 ];
 
 // Metra downtown stations, shown for transfers only (no accessibility data yet).
@@ -49,9 +50,10 @@ const METRA = [
   {id:'MUSEUM',name:'Museum Campus/11th St.',ll:[41.8686,-87.6214],lines:['ME'],side:'right'},
 ];
 
-// Track geometry. d = pixel offset to the right of the direction of travel; a = draw direction arrows.
+// Track geometry. d = pixel offset to the right of the direction of travel (a number, or one per point);
+// a = draw direction arrows.
 const NW=[41.8857,-87.6338], NE=[41.8857,-87.6261], SE=[41.8768,-87.6261], SW=[41.8768,-87.6338];
-const ROOSEVELT=[41.8674,-87.6262], WEST=[41.8857,-87.6720];
+const ROOSEVELT=[41.8674,-87.6262], WEST=[41.8857,-87.6720], TOWER18W=[41.8857,-87.6356];
 // Brown/Purple north branch, south to the NW corner: Franklin from past Chicago Ave to Hubbard, then Wells across the river.
 const N_BRANCH=[[41.9005,-87.6359],[41.8968,-87.6359],[41.8913,-87.6357],[41.8903,-87.6339],NW];
 const CW=[NW,NE,SE,SW,NW], CCW=[NW,SW,SE,NE,NW];
@@ -63,7 +65,9 @@ const TRACKS = [
   {c:'purple', p:N_BRANCH, d:-14},
   {c:'pink', p:[WEST,NW], d:4},
   {c:'orange', p:[SE,ROOSEVELT], d:9},
-  {c:'green', p:[WEST,NW,NE,SE,ROOSEVELT], d:-12},
+  // West of Tower 18, Green and Pink share the Lake St. tracks, so Green sits beside Pink (where Brown sits
+  // in the Loop) and jogs out to its Loop position just west of Wells.
+  {c:'green', p:[WEST,TOWER18W,NW,NE,SE,ROOSEVELT], d:[-4,-4,-12,-12,-12,-12]},
   {c:'brown', p:CCW, d:4, a:true},
   {c:'pink', p:CW, d:4, a:true},
   {c:'orange', p:CW, d:9, a:true},
@@ -89,6 +93,7 @@ L.tileLayer(`https://tiles.stadiamaps.com/tiles/${dark?'alidade_smooth_dark':'al
 // Offset a path by d screen pixels (miter joins), at the current zoom.
 function offsetPath(latlngs, d){
   if(!d) return latlngs.map(p=>L.latLng(p));
+  const dAt = Array.isArray(d) ? i=>d[i] : ()=>d;
   const pts = latlngs.map(p=>map.latLngToLayerPoint(L.latLng(p)));
   const n = pts.length, closed = pts[0].equals(pts[n-1]);
   const nrm = (a,b)=>{const dx=b.x-a.x, dy=b.y-a.y, L2=Math.hypot(dx,dy)||1; return [-dy/L2, dx/L2];};
@@ -98,17 +103,21 @@ function offsetPath(latlngs, d){
     let a = pr ? nrm(pr,pt) : null, b = nx ? nrm(pt,nx) : null;
     a = a || b; b = b || a;
     let mx = a[0]+b[0], my = a[1]+b[1]; const ml = Math.hypot(mx,my)||1; mx/=ml; my/=ml;
-    const k = d / ((mx*a[0]+my*a[1]) || 1);
+    const k = dAt(i) / ((mx*a[0]+my*a[1]) || 1);
     return map.layerPointToLatLng(L.point(pt.x+mx*k, pt.y+my*k));
   });
 }
 
+// Brown and Purple are too dark to read on the dark basemap, so they get a light casing there.
+const CASED = new Set(dark ? ['brown','purple'] : []);
 const trackLayer = L.layerGroup().addTo(map);
 function drawTracks(){
   trackLayer.clearLayers();
-  // Subways first so the elevated lines draw on top.
-  [...TRACKS].sort((x,y)=>(y.dash?1:0)-(x.dash?1:0)).forEach(t=>{
-    const ll = offsetPath(t.p, t.d||0);
+  // Subways first so the elevated lines draw on top; casings before all lines so they never cover a neighbor.
+  const order = [...TRACKS].sort((x,y)=>(y.dash?1:0)-(x.dash?1:0)).map(t=>({t, ll:offsetPath(t.p, t.d||0)}));
+  order.filter(({t})=>CASED.has(t.c)).forEach(({t,ll})=>
+    trackLayer.addLayer(L.polyline(ll,{color:'#d8d8d8', weight:7, opacity:0.85, lineJoin:'round', interactive:false})));
+  order.forEach(({t,ll})=>{
     const line = L.polyline(ll,{color:COLOR[t.c], weight:4, opacity:t.dash?0.8:0.95, dashArray:t.dash?'8 6':null, lineJoin:'round', interactive:false});
     trackLayer.addLayer(line);
     if(t.a && L.polylineDecorator){
@@ -140,7 +149,8 @@ function popupFor(s){
   const chips = s.lines.map(l=>`<span class="chip${l==='pink'?' lt':''}" style="--c:${COLOR[l]}">${LINE_NAME[l]}</span>`).join('');
   const al = alertsFor(s).map(a=>`<div class="al"><b>${esc(a.headline)}</b>${a.short?`<br>${esc(a.short)}`:''}</div>`).join('');
   return `<div class="pop"><h3>${esc(s.name)}</h3><div class="chips">${chips}</div>
-    <div class="st ${s.k}">${STATUS[s.k]}</div>${s.note?`<div>${esc(s.note)}</div>`:''}${al}</div>`;
+    <div class="st ${s.k}">${STATUS[s.k]}</div>${s.alt?`<div class="alt"><b>Step-free alternative:</b> ${esc(s.alt)}</div>`:''}
+    ${s.note?`<div>${esc(s.note)}</div>`:''}${al}</div>`;
 }
 function esc(t){return String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
@@ -171,23 +181,39 @@ function updateLabels(){
 map.on('zoomend', updateLabels);
 updateLabels();
 
+// Alerts poll every 5 minutes. They count as stale after 15 minutes without a successful load (failed polls,
+// or a phone that slept with the tab open); the last good alerts stay on the map, flagged in the panel header.
+const POLL_MS = 5*60*1000, STALE_MS = 15*60*1000;
+let lastOk = 0, checked = false;
+const fmtTime = t => new Date(t).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'});
+function showStatus(){
+  if(!checked) return;
+  const el = document.getElementById('status'), badge = document.getElementById('stale');
+  const stale = Date.now() - lastOk > STALE_MS;
+  const hits = markers.filter(({s})=>s.k==='y' && alertsFor(s).length).map(({s})=>s.name);
+  el.textContent = !lastOk ? 'Live elevator alerts unavailable. Check transitchicago.com before you travel.'
+    : stale ? `Elevator alerts haven't updated since ${fmtTime(lastOk)} and may be out of date. Check transitchicago.com before you travel.`
+    : hits.length ? `Elevator alerts at ${fmtTime(lastOk)}: ${hits.join(', ')}.` : `No elevator alerts on this map as of ${fmtTime(lastOk)}.`;
+  el.classList.toggle('warn', stale);
+  badge.hidden = !stale;
+}
 async function loadAlerts(){
-  const el = document.getElementById('status');
   try{
     const r = await fetch('/api/elevators',{cache:'no-store'});
     if(!r.ok) throw new Error(r.status);
     const j = await r.json();
     ALERTS = j.alerts || [];
+    lastOk = Date.now();
     markers.forEach(({s,m})=> m.setIcon(iconFor(s)));
-    const hits = markers.filter(({s})=>s.k==='y' && alertsFor(s).length).map(({s})=>s.name);
-    const t = new Date(j.updated||Date.now()).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'});
-    el.textContent = hits.length ? `Elevator alerts at ${t}: ${hits.join(', ')}.` : `No elevator alerts on this map as of ${t}.`;
-  }catch(e){
-    el.textContent = 'Live elevator alerts unavailable. Check transitchicago.com before you travel.';
-  }
+  }catch(e){ /* keep the last good alerts; showStatus flags them once stale */ }
+  checked = true;
+  showStatus();
 }
 loadAlerts();
-setInterval(loadAlerts, 5*60*1000);
+setInterval(loadAlerts, POLL_MS);
+setInterval(showStatus, 60*1000);
+// Background tabs throttle timers; refresh as soon as the page is visible again if a poll is overdue.
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && Date.now() - lastOk > POLL_MS) loadAlerts(); });
 
 // Locate me: browser geolocation (HTTPS or localhost only). The position never leaves the browser.
 // Own pane above the tracks (overlayPane 400, redrawn on every zoom) and below station markers (600).

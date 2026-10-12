@@ -17,7 +17,7 @@ Owner: Aaron (network engineer). Prefers direct, technically precise communicati
 - `public/` — the static site (`[assets] directory`; the assets layer serves these before the Worker runs):
 - `public/index.html` — page shell, collapsible key panel (auto-collapsed under 600px width)
 - `public/style.css` — light/dark via `prefers-color-scheme`
-- `public/app.js` — `STATIONS` data, `METRA` downtown stations, `TRACKS` geometry, map setup, pixel-offset track rendering, alert polling (5 min), locate-me control (watchPosition; position stays client-side)
+- `public/app.js` — `STATIONS` data, `METRA` downtown stations, `TRACKS` geometry, map setup, pixel-offset track rendering, alert polling (5 min) with stale indicator, step-free alternatives (`alt`), locate-me control (watchPosition; position stays client-side)
 - `src/worker.js` — Worker entry; routes `GET`/`HEAD /api/elevators`, 405 for other methods, 404 for anything else
 - `src/elevators.js` — `GET /api/elevators`; proxies CTA Customer Alerts API
   (`accessibility=TRUE&activeonly=TRUE`, JSON), normalizes to `{updated, alerts:[{id,headline,short,stations:[{id,name}]}]}`, 120s cache
@@ -49,10 +49,17 @@ wasn't connected). No console errors or failed requests, light and dark.
 - Fixed after first run: basemap (CARTO → Stadia), zoom control moved top-right (panel covered it),
   Red Line straightened onto State, initial view via fitBounds (Loop-only on phones).
 
-Known, not fixed:
-- Brown and Purple have poor contrast on the dark basemap (consider a light casing in dark mode).
-- West of the Loop, Pink (d:4, south of Lake) sits ~14px from Green (north) though they share track;
-  the offsets are tuned for the Loop where Brown sits between them.
+Fixed 2026-10-11 (second pass):
+- Dark mode: Brown and Purple get a light casing (`CASED`), drawn in a pass under all lines so it never
+  covers a neighbor; their key swatches get a matching outline.
+- West of Tower 18, Green sits beside Pink (d -4 vs +4) and jogs to its Loop offset (-12) between
+  `TOWER18W` and `NW`; `offsetPath` accepts `d` as one value per point for this.
+- Stale-data indicator: alerts poll every 5 min; after 15 min without a successful load (or on first-load
+  failure) the status text turns amber and a warning icon shows in the panel header (visible when collapsed).
+  Last good alerts stay on the map. A visibilitychange handler refreshes overdue polls after a phone wakes.
+- Stairs-only stations have an `alt` (nearest step-free alternative, including buses for Grand/Chicago Blue,
+  whose nearest Blue Line elevators are Clark/Lake and Western). Bus routes checked on transitchicago.com
+  (#56 Milwaukee Jefferson Park–Washington/Wabash, #65 Grand and #66 Chicago to Navy Pier).
 
 Long-term goal: systemwide CTA rail accessibility map (trains only, no buses).
 
@@ -117,4 +124,4 @@ Researched for the accessibility follow-up:
 
 - Load station IDs/coords from the city's open data instead of hand-maintaining them.
 - Show escalator outages too, or alerts for stations just outside the area (Merchandise Mart, Roosevelt).
-- Stale-data indicator if `/api/elevators` hasn't succeeded recently.
+- Step-free alternatives for elevator stations while their elevator is out (show `alt`-style text with the alert).
