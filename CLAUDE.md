@@ -232,6 +232,7 @@ Researched for the accessibility follow-up:
   identifies Metra's gateway.
 - Workers Builds stopped picking up pushes on Oct 13 morning (no check run on GitHub, project still shown as linked,
   no Cloudflare incident). Deployed with `npx wrangler deploy` (owner logged in with `wrangler login`).
+  Builds reconnected on the renamed Worker (step-free-chicago-transit ↔ aconaway1/step-free-chicago-transit), Oct 13.
 - The key kept vanishing (Oct 12): every Workers Builds deploy runs `wrangler deploy`, which wipes dashboard
   variables saved as plain Text (the dashboard's default type). `keep_vars = true` is now in wrangler.toml, and the
   variable must be type Secret. If Metra suddenly shows "not configured" after a push, check this first. Small built-in protobuf
