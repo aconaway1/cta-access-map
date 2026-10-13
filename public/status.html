@@ -23,11 +23,17 @@
   <section>
     <h2>Metra accessibility alerts</h2>
     <dl id="metra"><dt>Status</dt><dd>Checking…</dd></dl>
-    <p class="muted">A scheduled job fetches Metra's feed every 5 minutes, trying up to 4 times 45 seconds apart (Metra's firewall blocks some requests), and saves the last good copy. The map is served from that copy. When the copy is over 5 minutes old, a page visit also triggers one background attempt.</p>
+    <p class="muted">A scheduled job fetches Metra's feed every 5 minutes, trying up to 4 times 45 seconds apart (Metra's firewall blocks many requests from Cloudflare), and saves the last good copy. The map is served from that copy. When the copy is over 5 minutes old, a page visit also triggers one background attempt.</p>
+    <h3>Totals</h3>
+    <p class="muted" id="since"></p>
+    <div class="table-wrap"><table id="totals"><thead><tr><th>Source</th><th>Requests</th><th>Got through</th><th>Blocked (403)</th><th>403s from Azure Application Gateway</th></tr></thead><tbody><tr><td colspan="5">Checking…</td></tr></tbody></table></div>
+    <h3>By Cloudflare data center</h3>
+    <div class="table-wrap"><table id="colos"><thead><tr><th>Source</th><th>Data center</th><th>Requests</th><th>Got through</th><th>Last request</th></tr></thead><tbody><tr><td colspan="5">Checking…</td></tr></tbody></table></div>
     <h3>By hour</h3>
-    <div class="table-wrap"><table id="hourly"><thead><tr><th>Hour</th><th>Scheduled: tries that got through</th><th>Page visits: tries that got through</th></tr></thead><tbody><tr><td colspan="3">Checking…</td></tr></tbody></table></div>
-    <h3>Recent refresh attempts</h3>
-    <div class="table-wrap"><table id="runs"><thead><tr><th>Started</th><th>Source</th><th>Result</th><th>Attempts</th><th>Errors</th></tr></thead><tbody><tr><td colspan="5">Checking…</td></tr></tbody></table></div>
+    <div class="table-wrap"><table id="hourly"><thead><tr><th>Hour</th><th>Scheduled: requests that got through</th><th>Page visits: requests that got through</th></tr></thead><tbody><tr><td colspan="3">Checking…</td></tr></tbody></table></div>
+    <h3>Recent requests</h3>
+    <p class="muted">Every request to Metra is logged (kept 8 days). <a href="/api/metra-log.csv">Download the full log (CSV)</a>.</p>
+    <div class="table-wrap"><table id="runs"><thead><tr><th>Time</th><th>Source</th><th>Try</th><th>Result</th><th>Time taken</th><th>Data center</th></tr></thead><tbody><tr><td colspan="6">Checking…</td></tr></tbody></table></div>
   </section>
 
   <section>
@@ -87,21 +93,29 @@ async function load(){
     ] : []),
   ]);
 
-  const runs = m.runs || [];
-  document.querySelector('#runs tbody').innerHTML = runs.length ? runs.map(r => `<tr>
-      <td>${time(r.at)} <span class="muted">${ago(r.at)}</span></td>
-      <td>${r.source === 'visit' ? 'Page visit' : 'Scheduled'}</td>
-      <td>${r.ok ? state('ok', 'Saved') : state('bad', 'Kept previous copy')}</td>
-      <td>${r.attempts}</td>
-      <td>${r.errors && r.errors.length ? esc(r.errors.map(e => e.replace(/^Metra returned /, '')).join(', ')) : '—'}</td></tr>`).join('')
-    : '<tr><td colspan="5">No refresh attempts recorded yet (the first scheduled one lands within 5 minutes of a deploy).</td></tr>';
-
+  const log = m.log || {};
   const pct = (ok, n) => n ? `${ok} of ${n} <span class="muted">(${Math.round(100 * ok / n)}%)</span>` : '<span class="muted">—</span>';
+  const src = x => x === 'visit' ? 'Page visits' : 'Scheduled';
+  const body = (id, cols, list, fn, empty) => document.querySelector(`#${id} tbody`).innerHTML =
+    list && list.length ? list.map(fn).join('') : `<tr><td colspan="${cols}">${esc(log.error ? `Log unavailable: ${log.error}` : empty)}</td></tr>`;
+
+  document.getElementById('since').innerHTML = log.since ? `Since ${time(log.since)}. `
+    + (log.exactSince && log.exactSince > log.since ? `Before ${time(log.exactSince)}, times are reconstructed from the older run history (marked ≈), which also lost a few runs.` : '') : '';
+  body('totals', 5, log.totals, t => `<tr><td>${src(t.source)}</td><td>${t.tries} <span class="muted">in ${t.runs} runs</span></td>
+    <td>${pct(t.ok, t.tries)}</td><td>${t.blocked}</td><td>${t.gateway} <span class="muted">(recorded from ${time(log.exactSince)})</span></td></tr>`, 'No requests logged yet.');
+  body('colos', 5, log.colos, c => `<tr><td>${src(c.source)}</td><td>${esc(c.colo || 'unknown')}</td><td>${c.tries}</td>
+    <td>${pct(c.ok, c.tries)}</td><td>${time(c.last)}</td></tr>`, 'No requests logged since data centers started being recorded.');
+
+  const byHour = new Map();
+  for (const h of log.hourly || []) (byHour.get(h.hour) || byHour.set(h.hour, {hour: h.hour}).get(h.hour))[h.source] = h;
   const hourLabel = t => new Date(t).toLocaleString([], {month:'short', day:'numeric', hour:'numeric'});
-  const hours = m.hourly || [];
-  document.querySelector('#hourly tbody').innerHTML = hours.length ? hours.map(h => `<tr>
-      <td>${hourLabel(h.hour)}</td><td>${pct(h.cron.ok, h.cron.tries)}</td><td>${pct(h.visit.ok, h.visit.tries)}</td></tr>`).join('')
-    : '<tr><td colspan="3">No attempts recorded yet.</td></tr>';
+  const cell = h => h ? `${h.approx ? '≈ ' : ''}${pct(h.ok, h.tries)}` : '<span class="muted">—</span>';
+  body('hourly', 3, [...byHour.values()], h => `<tr><td>${hourLabel(h.hour)}</td><td>${cell(h.cron)}</td><td>${cell(h.visit)}</td></tr>`, 'No requests logged yet.');
+
+  const result = r => r.ok ? state('ok', 'Got through') : state('bad', r.status ? `${r.status}${r.gateway ? ' (gateway)' : ''}` : esc(r.error || 'failed'));
+  body('runs', 6, log.recent, r => `<tr><td>${r.approx ? '≈ ' : ''}${time(r.at)} <span class="muted">${ago(r.at)}</span></td>
+    <td>${r.source === 'visit' ? 'Page visit' : 'Scheduled'}</td><td>${r.attempt}</td><td>${result(r)}</td>
+    <td>${r.ms != null ? `${r.ms} ms` : '—'}</td><td>${esc(r.colo || '—')}</td></tr>`, 'No requests logged yet.');
 
   const d = s.deploy, st = (typeof CTA_DATA !== 'undefined') ? CTA_DATA : null;
   document.getElementById('deploy').innerHTML = rows([

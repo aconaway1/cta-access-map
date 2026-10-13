@@ -26,7 +26,8 @@ Owner: Aaron (network engineer). Prefers direct, technically precise communicati
 - `public/app.js` — `DOWNTOWN` hand-maintained stations (override generated ones by ID, field by field; plus a
   Roosevelt position override), `STATIONS` = merged list, `METRA` downtown stations, `TRACKS` geometry, map setup, pixel-offset track rendering, alert polling (5 min) with stale indicator, step-free alternatives (`alt`), locate-me control (watchPosition; position stays client-side) with a nearest-accessible-stations card
 - `src/worker.js` — Worker entry; routes `GET`/`HEAD /api/elevators`, 405 for other methods, 404 for anything else
-- `src/metra.js` — `GET /api/metra-alerts`; Metra GTFS-realtime alerts (protobuf → JSON) using the `METRA_API_TOKEN` secret
+- `src/runlog.js` — `RunLog` Durable Object: per-request log of Metra fetches (see Metra section)
+- `src/metra.js` — `GET /api/metra-alerts` and `/api/metra-log.csv`; Metra GTFS-realtime alerts (protobuf → JSON) using the `METRA_API_TOKEN` secret
 - `src/elevators.js` — `GET /api/elevators`; proxies CTA Customer Alerts API
   (`accessibility=TRUE&activeonly=TRUE`, JSON), normalizes to `{updated, alerts:[{id,headline,short,stations:[{id,name}]}]}`, 120s cache
 - `README.md` — deploy and dev commands (`npx wrangler deploy`, `npx wrangler dev`)
@@ -199,9 +200,18 @@ Researched for the accessibility follow-up:
   in `metra-runs` with `source:'visit'` (scheduled runs `source:'cron'`). Reason: the first fixed cron run (8:30 PM)
   got 403 on all 4 attempts while visitor-colo requests got through ~50%.
 - `/status` (public/status.html + `GET /api/status`, src/status.js): live CTA feed check, Metra saved copy age and
-  counts, refresh attempts (KV key `metra-runs`, written each attempt, keeps 300 ≈ 25 h; page shows the newest 24
-  plus per-hour totals of tries that got through, by source), deployed version (`[version_metadata]`
-  binding CF_VERSION), station data counts. Public by the owner's choice; shows only whether keys are set.
+  counts, the Metra request log, deployed version (`[version_metadata]` binding CF_VERSION), station data counts.
+  Public by the owner's choice; shows only whether keys are set.
+- Metra request log (Oct 13): every individual request to Metra (scheduled and page-visit) is a row in a
+  SQLite-backed Durable Object (`RunLog`, src/runlog.js, binding `RUN_LOG`, migration in wrangler.toml; free plan),
+  kept 8 days: time, source, run, try number, HTTP status, ms, Cloudflare colo (visits: `request.cf.colo`; cron:
+  `/cdn-cgi/trace`), Server header, whether the body is Azure Application Gateway's error page. Never the body or
+  anything with the key. `/api/metra-log.csv` downloads it. Replaced the KV list `metra-runs`, which lost runs when a
+  cron run and a visit wrote at once (7:15–7:35 AM Oct 13); that list was imported once with reconstructed per-try
+  times (`approx`). PURPOSE: 72 hours of evidence (Oct 12 8:30 PM CT → Oct 15 8:30 PM CT) for a note asking Metra to
+  allow Cloudflare Workers egress. Overnight Oct 12–13: scheduled 0 of 676 requests got through (all 403), page
+  visits 27 of 37, failures clustered by hour. Don't change retry/schedule behavior until the 72 h are in, so the
+  numbers stay comparable.
 - The key kept vanishing (Oct 12): every Workers Builds deploy runs `wrangler deploy`, which wipes dashboard
   variables saved as plain Text (the dashboard's default type). `keep_vars = true` is now in wrangler.toml, and the
   variable must be type Secret. If Metra suddenly shows "not configured" after a push, check this first. Small built-in protobuf

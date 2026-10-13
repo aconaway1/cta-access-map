@@ -16,10 +16,9 @@ const CAUSE = ['', 'UNKNOWN_CAUSE', 'OTHER_CAUSE', 'TECHNICAL_PROBLEM', 'STRIKE'
 // up to 4 times 45 s apart and stores the last good copy in KV (binding CACHE). /api/metra-alerts serves that copy.
 // The copy keeps Metra's own feed time (`updated`), so the page's "as of" stays truthful. Writes happen only on
 // success: at most 288/day, inside the free plan's 1,000.
+// Every individual request to Metra is logged in the RunLog Durable Object (src/runlog.js) for /status and for the
+// evidence we send Metra (Oct 13: every scheduled request overnight was blocked).
 const KV_KEY = 'metra-alerts';
-const RUNS_KEY = 'metra-runs';   // refresh attempts (scheduled and page-visit), newest first, for /status
-const RUNS_KEPT = 300;           // ~25 h of scheduled runs; ~75 KB, still one write per attempt
-const RUNS_SHOWN = 24;
 const ATTEMPTS = 4, RETRY_MS = 45 * 1000;
 
 // Page visits also help: if the saved copy is over 5 minutes old, the Worker answers with it right away and then
@@ -28,14 +27,16 @@ const ATTEMPTS = 4, RETRY_MS = 45 * 1000;
 const VISIT_REFRESH_AFTER_MS = 5 * 60 * 1000, VISIT_TRY_EVERY_MS = 2 * 60 * 1000;
 let lastVisitTry = 0;   // per isolate
 
-export async function metraAlerts(env, ctx) {
+const runLog = env => env.RUN_LOG && env.RUN_LOG.get(env.RUN_LOG.idFromName('metra'));
+
+export async function metraAlerts(env, ctx, request) {
   if (!env.METRA_API_TOKEN) return json({ error: 'Metra alerts are not configured', alerts: [] }, 60, 503);
   const stored = env.CACHE && await env.CACHE.get(KV_KEY, 'json');
   if (stored) {
     const age = Date.now() - Date.parse(stored.fetched || stored.updated);
     if (ctx && age > VISIT_REFRESH_AFTER_MS && Date.now() - lastVisitTry > VISIT_TRY_EVERY_MS) {
       lastVisitTry = Date.now();
-      ctx.waitUntil(visitRefresh(env));   // one attempt, well inside waitUntil's ~30 s
+      ctx.waitUntil(visitRefresh(env, request?.cf?.colo));   // one attempt, well inside waitUntil's ~30 s
     }
     return json(stored, 60);
   }
@@ -50,73 +51,75 @@ export async function metraAlerts(env, ctx) {
   }
 }
 
-async function visitRefresh(env) {
-  const started = new Date().toISOString();
+async function visitRefresh(env, colo) {
+  const t = await attempt(env);
+  if (t.body) await env.CACHE.put(KV_KEY, JSON.stringify(t.body));
+  await record(env, `visit ${t.at}`, 'visit', colo, [t]);
+}
+
+// One request to Metra, timed, with what the log needs. Never throws.
+async function attempt(env) {
+  const at = new Date().toISOString(), t0 = Date.now();
   try {
-    await env.CACHE.put(KV_KEY, JSON.stringify(await fetchOnce(env)));
-    await recordRun(env, { at: started, source: 'visit', ok: true, attempts: 1, summary: 'stored', errors: [] });
+    const body = await fetchOnce(env);
+    return { at, ms: Date.now() - t0, status: 200, ok: true, body };
   } catch (e) {
-    await recordRun(env, { at: started, source: 'visit', ok: false, attempts: 1, summary: 'kept previous copy', errors: [String(e.message || e)] });
+    return { at, ms: Date.now() - t0, status: e.status || 0, ok: false, server: e.server || '', gateway: Boolean(e.gateway),
+      error: String(e.message || e) };
   }
 }
 
-async function recordRun(env, run) {
+async function record(env, run, source, colo, tries) {
   try {
-    const runs = (await env.CACHE.get(RUNS_KEY, 'json')) || [];
-    runs.unshift(run);
-    await env.CACHE.put(RUNS_KEY, JSON.stringify(runs.slice(0, RUNS_KEPT)));
-  } catch (e) { /* history is best effort */ }
+    await runLog(env)?.record(tries.map((t, i) => ({ run, source, attempt: i + 1, colo: colo || '', at: t.at, ms: t.ms,
+      status: t.status, ok: t.ok, server: t.server || '', gateway: t.gateway || false, error: t.error || '' })));
+  } catch (e) { console.log(`run log failed: ${e.message || e}`); }
 }
 
-// Cron Trigger handler body. Returns a short outcome string, and records it in the run history for /status
-// (one more KV write per run: with the data writes, at most 576/day, under the free plan's 1,000).
+// The Cloudflare data center running this code, for scheduled runs (visits read request.cf.colo).
+async function currentColo() {
+  try {
+    const r = await fetch('https://www.cloudflare.com/cdn-cgi/trace');
+    return (/^colo=(\w+)$/m.exec(await r.text()) || [])[1] || '';
+  } catch { return ''; }
+}
+
+// Cron Trigger handler body. Returns a short outcome string; each request is logged.
 export async function refreshMetra(env, { attempts = ATTEMPTS, retryMs = RETRY_MS } = {}) {
   if (!env.METRA_API_TOKEN || !env.CACHE) return 'skipped: not configured';
-  const started = new Date().toISOString();
-  const errors = [];
-  let outcome = null;
-  for (let n = 1; n <= attempts && !outcome; n++) {
-    try {
-      const body = await fetchOnce(env);
-      await env.CACHE.put(KV_KEY, JSON.stringify(body));
-      outcome = { ok: true, attempts: n, summary: `stored on attempt ${n}` };
-    } catch (e) {
-      errors.push(String(e.message || e));
-      if (n < attempts) await new Promise(res => setTimeout(res, retryMs));
-    }
+  const run = `cron ${new Date().toISOString()}`;
+  const colo = await currentColo();
+  const tries = [];
+  for (let n = 1; n <= attempts; n++) {
+    const t = await attempt(env);
+    tries.push(t);
+    if (t.body) { await env.CACHE.put(KV_KEY, JSON.stringify(t.body)); break; }
+    if (n < attempts) await new Promise(res => setTimeout(res, retryMs));
   }
-  outcome ||= { ok: false, attempts, summary: `kept previous copy: ${errors.at(-1)} after ${attempts} attempts` };
-  await recordRun(env, { at: started, source: 'cron', ...outcome, errors });
-  return outcome.summary;
+  await record(env, run, 'cron', colo, tries);
+  const last = tries.at(-1);
+  return last.ok ? `stored on attempt ${tries.length} (${colo})` : `kept previous copy: ${last.error} after ${attempts} attempts (${colo})`;
 }
 
-// For /api/status: the stored copy's times and counts, and the run history. Never includes the token.
+// For /api/status: the stored copy's times and counts, and the request log summary. Never includes the token.
 export async function metraStatus(env) {
   const copy = env.CACHE ? await env.CACHE.get(KV_KEY, 'json') : null;
-  const runs = env.CACHE ? (await env.CACHE.get(RUNS_KEY, 'json')) || [] : [];
+  let log = null;
+  try { log = await runLog(env)?.report(); } catch (e) { log = { error: String(e.message || e) }; }
   return {
     keySet: Boolean(env.METRA_API_TOKEN),
     kvBound: Boolean(env.CACHE),
     copy: copy && { updated: copy.updated, fetched: copy.fetched || null, alerts: copy.alerts.length,
       accessibility: copy.alerts.filter(a => /elevator|escalator|\bramps?\b|\bADA\b|accessib|wheelchair/i.test(`${a.header} ${a.description}`)).length },
-    runs: runs.slice(0, RUNS_SHOWN),
-    hourly: hourly(runs),
-    kept: runs.length,
+    log,
   };
 }
 
-// Per-hour totals over the kept history, newest hour first: tries (individual requests to Metra) and how many
-// got through, split by source. A scheduled run counts its attempts as tries; it succeeds at most once.
-function hourly(runs) {
-  const by = new Map();
-  for (const r of runs) {
-    const hour = r.at.slice(0, 13) + ':00:00.000Z';
-    const h = by.get(hour) || { hour, cron: { runs: 0, tries: 0, ok: 0 }, visit: { runs: 0, tries: 0, ok: 0 } };
-    const k = r.source === 'visit' ? h.visit : h.cron;
-    k.runs++; k.tries += r.attempts || 1; k.ok += r.ok ? 1 : 0;
-    by.set(hour, h);
-  }
-  return [...by.values()].sort((a, b) => b.hour.localeCompare(a.hour)).slice(0, 26);
+export async function metraLogCsv(env) {
+  const log = runLog(env);
+  if (!log) return new Response('Request log not configured', { status: 503 });
+  return new Response(await log.csv(), { headers: { 'content-type': 'text/csv; charset=utf-8', 'cache-control': 'no-store',
+    'content-disposition': 'attachment; filename="metra-requests.csv"' } });
 }
 
 async function fetchOnce(env) {
@@ -125,7 +128,15 @@ async function fetchOnce(env) {
     authorization: `Bearer ${env.METRA_API_TOKEN.trim()}`,
     'user-agent': 'cta-access-map (+https://github.com/aconaway1/cta-access-map)',
   } });
-  if (!r.ok) throw new Error(`Metra returned ${r.status}`);
+  if (!r.ok) {
+    // Keep only what identifies the responder (status, Server header, whether the body is Azure Application
+    // Gateway's error page), never the body itself.
+    const e = new Error(`Metra returned ${r.status}`);
+    e.status = r.status;
+    e.server = r.headers.get('server') || '';
+    e.gateway = /Application-Gateway/i.test(await r.text().catch(() => ''));
+    throw e;
+  }
   return { ...parseFeed(new Uint8Array(await r.arrayBuffer())), fetched: new Date().toISOString() };
 }
 

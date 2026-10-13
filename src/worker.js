@@ -1,12 +1,14 @@
 // Worker entry point. Static files in public/ are served by the assets layer before this runs,
 // so only paths with no matching file (the API) reach fetch().
 import { elevators } from './elevators.js';
-import { metraAlerts, refreshMetra } from './metra.js';
+import { metraAlerts, metraLogCsv, refreshMetra } from './metra.js';
 import { status } from './status.js';
+export { RunLog } from './runlog.js';
 
 const ROUTES = {
   '/api/elevators': () => elevators(),
-  '/api/metra-alerts': (env, ctx) => metraAlerts(env, ctx),
+  '/api/metra-alerts': (env, ctx, request) => metraAlerts(env, ctx, request),
+  '/api/metra-log.csv': env => metraLogCsv(env),
   '/api/status': env => status(env),
 };
 
@@ -15,7 +17,7 @@ export default {
     const route = ROUTES[new URL(request.url).pathname];
     if (!route) return new Response('Not Found', { status: 404 });
     if (!['GET', 'HEAD'].includes(request.method)) return new Response('Method Not Allowed', { status: 405, headers: { allow: 'GET, HEAD' } });
-    return route(env, ctx);
+    return route(env, ctx, request);
   },
   // Cron Trigger (wrangler.toml [triggers]): refresh the stored Metra alerts every 5 minutes. Awaited, not handed
   // to ctx.waitUntil: waitUntil work only gets ~30 s after the handler returns, which killed runs during the 45 s
