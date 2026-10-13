@@ -22,6 +22,7 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:14px/1.
 .dot{width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:14px;color:#fff;border:2px solid #fff;box-sizing:border-box;position:relative;flex:none}
 .dot.y{background:var(--ok)}.dot.n{background:var(--no)}.dot.c{background:var(--closed);color:#222}
 .dot.m{background:#4a5568;border-radius:6px}
+.dot.m.y{background:var(--ok)}.dot.m.n{background:var(--no)}
 .dot.alert::after{content:"";position:absolute;top:-4px;right:-4px;width:10px;height:10px;border-radius:50%;background:var(--warn);border:2px solid #fff}
 .stn{background:none;border:0}
 .stn .dot{width:24px;height:24px;font-size:15px;box-shadow:0 1px 3px rgba(0,0,0,.35)}

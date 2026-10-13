@@ -50,19 +50,22 @@ const OVERRIDE = Object.fromEntries(DOWNTOWN.map(s=>[s.id, s]));
 OVERRIDE[41400] = {ll:[41.8674,-87.6268]};
 const STATIONS = CTA_DATA.stations.map(s=>({...s, ...OVERRIDE[s.id]}));
 
-// Metra downtown stations, shown for transfers only (no accessibility data yet).
+// Metra downtown stations, shown for transfers. k as for CTA ('y' elevator / 'n' not accessible), from Metra's
+// published elevator list (metra.com/elevatorsites, read Oct 11, 2026) and its Millennium closure notice; GTFS
+// marks all six wheelchair-accessible. Our reading of Metra's site, not licensed feed data, and labeled as such.
 // id = GTFS stop_id; ll and lines from Metra static GTFS (published 2026-10-03), except LaSalle Street:
 // its GTFS point sits on top of the CTA LaSalle stations, so it's moved south onto the platforms.
 const METRA_COLOR = {BNSF:['#29C233','#000'],HC:['#550E0C','#fff'],'MD-N':['#CC5500','#fff'],'MD-W':['#F1AD0E','#000'],
   ME:['#EB5C00','#fff'],NCS:['#9785BC','#fff'],RI:['#E02400','#fff'],SWS:['#0042A8','#fff'],
   'UP-N':['#008000','#fff'],'UP-NW':['#FFE600','#000'],'UP-W':['#FE8D81','#000']};
 const METRA = [
-  {id:'OTC',name:'Ogilvie (OTC)',ll:[41.8822,-87.6406],lines:['UP-N','UP-NW','UP-W'],side:'left'},
-  {id:'CUS',name:'Union Station',ll:[41.8789,-87.6389],lines:['BNSF','HC','MD-N','MD-W','NCS','SWS'],side:'left'},
-  {id:'LSS',name:'LaSalle Street',ll:[41.8745,-87.6322],lines:['RI'],side:'left'},
-  {id:'MILLENNIUM',name:'Millennium',ll:[41.8842,-87.6231],lines:['ME'],side:'right'},
-  {id:'VANBUREN',name:'Van Buren Street',ll:[41.8769,-87.6231],lines:['ME'],side:'right'},
-  {id:'MUSEUM',name:'Museum Campus/11th St.',ll:[41.8686,-87.6214],lines:['ME'],side:'right'},
+  {id:'OTC',name:'Ogilvie (OTC)',ll:[41.8822,-87.6406],lines:['UP-N','UP-NW','UP-W'],side:'left',k:'y'},
+  {id:'CUS',name:'Union Station',ll:[41.8789,-87.6389],lines:['BNSF','HC','MD-N','MD-W','NCS','SWS'],side:'left',k:'y'},
+  {id:'LSS',name:'LaSalle Street',ll:[41.8745,-87.6322],lines:['RI'],side:'left',k:'y'},
+  {id:'MILLENNIUM',name:'Millennium',ll:[41.8842,-87.6231],lines:['ME'],side:'right',k:'n',temp:true,
+    note:'The only elevator (South Water St. entrance) is closed for replacement until winter 2026–27. Metra says to use Van Buren Street for elevator access.'},
+  {id:'VANBUREN',name:'Van Buren Street',ll:[41.8769,-87.6231],lines:['ME'],side:'right',k:'y'},
+  {id:'MUSEUM',name:'Museum Campus/11th St.',ll:[41.8686,-87.6214],lines:['ME'],side:'right',k:'y'},
 ];
 
 // Track geometry. d = pixel offset to the right of the direction of travel (a number, or one per point);
@@ -221,12 +224,14 @@ function metraAlertsFor(s){
 function metraPopup(s){
   const alerts = metraAlertsFor(s);
   const al = alerts.map(a=>`<div class="al">${esc(a.description || a.headers[0])}</div>`).join('');
+  const st = s.k === 'y' ? 'Elevator access' : s.temp ? 'Temporarily not accessible' : 'Not accessible';
   return `<div class="pop"><h3>${esc(s.name)}</h3><div class="chips">${metraChips(s.lines)}</div>
-    ${alerts.length ? `<div class="st alert">Accessibility alert</div>${al}<div class="tip">From Metra's alert feed, updated ${fmtTime(metraUpdated)}.</div>` : ''}
-    <div class="note-p">Metra station. Its accessibility status isn't shown here yet; check metra.com before you travel.</div></div>`;
+    <div class="st ${s.k}">${st}</div>${s.note ? `<div class="note-p">${esc(s.note)}</div>` : ''}
+    ${alerts.length ? `${al}<div class="tip">Alert from Metra's feed, updated ${fmtTime(metraUpdated)}.</div>` : ''}
+    <div class="tip">Metra station. Status from Metra's published elevator list (Oct 2026); check metra.com before you travel.</div></div>`;
 }
-const metraIcon = alert => L.divIcon({className:'stn', iconSize:[24,24], iconAnchor:[12,12],
-  html:`<span class="dot m${alert?' alert':''}"><i class="ti ti-train"></i></span>`});
+const metraIcon = (s, alert) => L.divIcon({className:'stn', iconSize:[24,24], iconAnchor:[12,12],
+  html:`<span class="dot m ${s.k}${alert?' alert':''}"><i class="ti ${s.k==='y'?'ti-elevator':'ti-train'}"></i></span>`});
 
 // Station markers with name labels (labels shown at zoom 16+).
 const labeled = [];
@@ -239,7 +244,7 @@ function addStation(s, icon, popup, z){
   return m;
 }
 STATIONS.forEach(s=> markers.push({s, m:addStation(s, iconFor(s), ()=>popupFor(s), 1000)}));
-const metraMarkers = METRA.map(s=>({s, m:addStation(s, metraIcon(false), ()=>metraPopup(s), 900)}));
+const metraMarkers = METRA.map(s=>({s, m:addStation(s, metraIcon(s, false), ()=>metraPopup(s), 900)}));
 
 function updateLabels(){
   const z = map.getZoom(), show = z >= 16;
@@ -299,7 +304,7 @@ async function loadMetra(){
     METRA_ALERTS = [...merged.values()];
     metraUpdated = j.updated;
     metraState = 'ok';
-    metraMarkers.forEach(({s,m})=> m.setIcon(metraIcon(metraAlertsFor(s).length > 0)));
+    metraMarkers.forEach(({s,m})=> m.setIcon(metraIcon(s, metraAlertsFor(s).length > 0)));
   }catch(e){
     // Keep the last good list if there is one. Metra's firewall refuses some requests in ~30 s runs, so if the
     // first load fails, try again shortly instead of showing "unavailable" until the next 5-minute poll.

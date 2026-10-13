@@ -157,7 +157,12 @@ spot-check on transitchicago.com station pages.
   Closed paths (first point == last) are handled for the rectangle.
 - Coordinates are approximate (hand-placed), good enough for a schematic, not survey-grade.
 
-## Metra (stations 2026-10-11; live accessibility alerts 2026-10-12; station accessibility status not yet)
+## Metra (stations 2026-10-11; live accessibility alerts and downtown station status 2026-10-12)
+
+Downtown station status (`k` on `METRA` entries): elevators at OTC, CUS, LaSalle St., Van Buren St., Museum
+Campus/11th per metra.com/elevatorsites; Millennium `k:'n'` + `temp` while the South Water elevator is closed for
+replacement (until winter 2026–27; Metra points riders to Van Buren St.). Hand-maintained on purpose, not driven by
+the live alert, since the feed fetch is flaky. Update Millennium when it reopens. Square markers, CTA colors.
 
 The six downtown Metra stations are shown as gray square markers for transfers: OTC, Union Station, LaSalle
 Street, Millennium, Van Buren Street, Museum Campus/11th St. No tracks, no accessibility status, no alerts.
