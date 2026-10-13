@@ -205,13 +205,18 @@ Researched for the accessibility follow-up:
 - Metra request log (Oct 13): every individual request to Metra (scheduled and page-visit) is a row in a
   SQLite-backed Durable Object (`RunLog`, src/runlog.js, binding `RUN_LOG`, migration in wrangler.toml; free plan),
   kept 8 days: time, source, run, try number, HTTP status, ms, Cloudflare colo (visits: `request.cf.colo`; cron:
-  `/cdn-cgi/trace`), Server header, whether the body is Azure Application Gateway's error page. Never the body or
+  `/cdn-cgi/trace`), Server header and Metra's `x-ratelimit-*` (limit 200; seen on 401s from IIS), whether the body is Azure Application Gateway's error page. Never the body or
   anything with the key. `/api/metra-log.csv` downloads it. Replaced the KV list `metra-runs`, which lost runs when a
   cron run and a visit wrote at once (7:15–7:35 AM Oct 13); that list was imported once with reconstructed per-try
   times (`approx`). PURPOSE: 72 hours of evidence (Oct 12 8:30 PM CT → Oct 15 8:30 PM CT) for a note asking Metra to
   allow Cloudflare Workers egress. Overnight Oct 12–13: scheduled 0 of 676 requests got through (all 403), page
   visits 27 of 37, failures clustered by hour. Don't change retry/schedule behavior until the 72 h are in, so the
   numbers stay comparable.
+  First exact rows (Oct 13, 12:05 PM CT): the scheduled run executed in LHR (Cloudflare runs Cron Triggers on
+  underutilized machines anywhere, not near the user) and its 403s carried `server: cloudflare` + Azure Application
+  Gateway's error body. Hypothesis to test with the colo table: Metra's WAF blocks non-US sources.
+- Workers Builds stopped picking up pushes on Oct 13 morning (no check run on GitHub, project still shown as linked,
+  no Cloudflare incident). Deployed with `npx wrangler deploy` (owner logged in with `wrangler login`).
 - The key kept vanishing (Oct 12): every Workers Builds deploy runs `wrangler deploy`, which wipes dashboard
   variables saved as plain Text (the dashboard's default type). `keep_vars = true` is now in wrangler.toml, and the
   variable must be type Secret. If Metra suddenly shows "not configured" after a push, check this first. Small built-in protobuf

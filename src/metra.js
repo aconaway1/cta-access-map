@@ -59,12 +59,12 @@ async function visitRefresh(env, colo) {
 
 // One request to Metra, timed, with what the log needs. Never throws.
 async function attempt(env) {
-  const at = new Date().toISOString(), t0 = Date.now();
+  const at = new Date().toISOString(), t0 = Date.now(), meta = {};
   try {
-    const body = await fetchOnce(env);
-    return { at, ms: Date.now() - t0, status: 200, ok: true, body };
+    const body = await fetchOnce(env, meta);
+    return { at, ms: Date.now() - t0, status: 200, ok: true, body, ...meta };
   } catch (e) {
-    return { at, ms: Date.now() - t0, status: e.status || 0, ok: false, server: e.server || '', gateway: Boolean(e.gateway),
+    return { at, ms: Date.now() - t0, status: e.status || 0, ok: false, ...meta, gateway: Boolean(e.gateway),
       error: String(e.message || e) };
   }
 }
@@ -72,7 +72,7 @@ async function attempt(env) {
 async function record(env, run, source, colo, tries) {
   try {
     await runLog(env)?.record(tries.map((t, i) => ({ run, source, attempt: i + 1, colo: colo || '', at: t.at, ms: t.ms,
-      status: t.status, ok: t.ok, server: t.server || '', gateway: t.gateway || false, error: t.error || '' })));
+      status: t.status, ok: t.ok, server: t.server || '', ratelimit: t.ratelimit || '', gateway: t.gateway || false, error: t.error || '' })));
   } catch (e) { console.log(`run log failed: ${e.message || e}`); }
 }
 
@@ -122,18 +122,20 @@ export async function metraLogCsv(env) {
     'content-disposition': 'attachment; filename="metra-requests.csv"' } });
 }
 
-async function fetchOnce(env) {
+// meta (optional) collects response headers for the request log: Server, and Metra's x-ratelimit-* values.
+async function fetchOnce(env, meta = {}) {
   // Trimmed: a key pasted into the dashboard can carry whitespace. Sent as a header, never in the URL.
   const r = await fetch(SOURCE, { headers: {
     authorization: `Bearer ${env.METRA_API_TOKEN.trim()}`,
     'user-agent': 'cta-access-map (+https://github.com/aconaway1/cta-access-map)',
   } });
+  meta.server = r.headers.get('server') || '';
+  meta.ratelimit = ['limit', 'remaining', 'reset'].map(k => r.headers.get(`x-ratelimit-${k}`)).filter(v => v != null).join('/');
   if (!r.ok) {
     // Keep only what identifies the responder (status, Server header, whether the body is Azure Application
     // Gateway's error page), never the body itself.
     const e = new Error(`Metra returned ${r.status}`);
     e.status = r.status;
-    e.server = r.headers.get('server') || '';
     e.gateway = /Application-Gateway/i.test(await r.text().catch(() => ''));
     throw e;
   }

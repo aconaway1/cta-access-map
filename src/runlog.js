@@ -6,7 +6,7 @@ import { DurableObject } from 'cloudflare:workers';
 
 const KEEP_MS = 8 * 24 * 3600 * 1000;
 const RECENT = 40;
-const COLS = ['at', 'source', 'run', 'attempt', 'status', 'ok', 'ms', 'colo', 'server', 'gateway', 'error', 'approx'];
+const COLS = ['at', 'source', 'run', 'attempt', 'status', 'ok', 'ms', 'colo', 'server', 'gateway', 'ratelimit', 'error', 'approx'];
 
 export class RunLog extends DurableObject {
   constructor(ctx, env) {
@@ -15,6 +15,9 @@ export class RunLog extends DurableObject {
     this.sql.exec(`CREATE TABLE IF NOT EXISTS tries (id INTEGER PRIMARY KEY, at TEXT, source TEXT, run TEXT,
       attempt INTEGER, status INTEGER, ok INTEGER, ms INTEGER, colo TEXT, server TEXT, gateway INTEGER, error TEXT,
       approx INTEGER DEFAULT 0)`);
+    // Added Oct 13 after the first deploy: Metra's x-ratelimit-limit/remaining/reset as one string.
+    if (!this.sql.exec('PRAGMA table_info(tries)').toArray().some(c => c.name === 'ratelimit'))
+      this.sql.exec('ALTER TABLE tries ADD COLUMN ratelimit TEXT');
     this.sql.exec('CREATE INDEX IF NOT EXISTS tries_at ON tries(at)');
     this.sql.exec('CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT)');
   }
@@ -22,7 +25,7 @@ export class RunLog extends DurableObject {
   insert(t) {
     this.sql.exec(`INSERT INTO tries (${COLS.join(',')}) VALUES (${COLS.map(() => '?').join(',')})`,
       t.at, t.source, t.run, t.attempt, t.status, t.ok ? 1 : 0, t.ms ?? null, t.colo || '', t.server || '',
-      t.gateway ? 1 : 0, t.error || '', t.approx ? 1 : 0);
+      t.gateway ? 1 : 0, t.ratelimit || '', t.error || '', t.approx ? 1 : 0);
   }
 
   // One-time import of the history kept in KV before this log existed (Oct 12 8:30 PM CT onward). Those entries
