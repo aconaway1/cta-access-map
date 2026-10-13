@@ -32,6 +32,15 @@ crons = ["*/5 * * * *"]
 name = "RUN_LOG"
 class_name = "RunLog"
 
+# Makes every request to Metra from eastern North America (Metra's gateway blocks non-US sources; src/metra.js).
+[[durable_objects.bindings]]
+name = "METRA_FETCHER"
+class_name = "MetraFetcher"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["RunLog"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["MetraFetcher"]

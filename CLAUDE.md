@@ -214,7 +214,12 @@ Researched for the accessibility follow-up:
   numbers stay comparable.
   First exact rows (Oct 13, 12:05 PM CT): the scheduled run executed in LHR (Cloudflare runs Cron Triggers on
   underutilized machines anywhere, not near the user) and its 403s carried `server: cloudflare` + Azure Application
-  Gateway's error body. Hypothesis to test with the colo table: Metra's WAF blocks non-US sources.
+  Gateway's error body. Same day: free-plan workers.dev traffic from the owner's Chicago machine was served from
+  WAW/DUB/CDG and its fetches left from NRT/MXP, all 403, while a plain US request got through (401 from IIS without
+  a key). Conclusion: Metra's gateway geo-blocks non-US sources. 72-hour study dropped.
+- FIX (Oct 13): every request to Metra goes through the `MetraFetcher` Durable Object (src/metra.js, binding
+  `METRA_FETCHER`, migration v2), instance name 'enam' created with `locationHint: 'enam'`. A DO runs where it was
+  placed, wherever the cron/visitor landed. The hint only applies at creation; to move it, use a new instance name.
 - Workers Builds stopped picking up pushes on Oct 13 morning (no check run on GitHub, project still shown as linked,
   no Cloudflare incident). Deployed with `npx wrangler deploy` (owner logged in with `wrangler login`).
 - The key kept vanishing (Oct 12): every Workers Builds deploy runs `wrangler deploy`, which wipes dashboard

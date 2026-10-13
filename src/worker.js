@@ -2,12 +2,13 @@
 // so only paths with no matching file (the API) reach fetch().
 import { elevators } from './elevators.js';
 import { metraAlerts, metraLogCsv, refreshMetra } from './metra.js';
+export { MetraFetcher } from './metra.js';
 import { status } from './status.js';
 export { RunLog } from './runlog.js';
 
 const ROUTES = {
   '/api/elevators': () => elevators(),
-  '/api/metra-alerts': (env, ctx, request) => metraAlerts(env, ctx, request),
+  '/api/metra-alerts': (env, ctx) => metraAlerts(env, ctx),
   '/api/metra-log.csv': env => metraLogCsv(env),
   '/api/status': env => status(env),
 };

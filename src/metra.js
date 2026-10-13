@@ -2,6 +2,7 @@
 // Fetches Metra's GTFS-realtime service alerts (protobuf) with the METRA_API_TOKEN Worker secret and returns
 // them as JSON. Metra's license requires serving the data through our own host, which this does; alert text is
 // passed through unmodified. The token is sent in a header (not the URL) and never logged or echoed.
+import { DurableObject } from 'cloudflare:workers';
 const SOURCE = 'https://gtfspublic.metrarr.com/gtfs/public/alerts';
 
 // GTFS-realtime Alert.Effect / Alert.Cause enum names.
@@ -16,8 +17,13 @@ const CAUSE = ['', 'UNKNOWN_CAUSE', 'OTHER_CAUSE', 'TECHNICAL_PROBLEM', 'STRIKE'
 // up to 4 times 45 s apart and stores the last good copy in KV (binding CACHE). /api/metra-alerts serves that copy.
 // The copy keeps Metra's own feed time (`updated`), so the page's "as of" stays truthful. Writes happen only on
 // success: at most 288/day, inside the free plan's 1,000.
-// Every individual request to Metra is logged in the RunLog Durable Object (src/runlog.js) for /status and for the
-// evidence we send Metra (Oct 13: every scheduled request overnight was blocked).
+// Every individual request to Metra is logged in the RunLog Durable Object (src/runlog.js) for /status.
+//
+// GEO-BLOCK (found Oct 13): the 403s are Metra's gateway refusing requests that leave Cloudflare outside the US.
+// Cron Triggers ran in LHR, and free-plan workers.dev traffic from Chicago was served from CDG/MXP/WAW/NRT, while a
+// plain US request gets through. So every request to Metra goes through the MetraFetcher Durable Object below,
+// created with locationHint 'enam' (eastern North America): a Durable Object runs where it was placed, whichever
+// data center the cron or the visitor landed in.
 const KV_KEY = 'metra-alerts';
 const ATTEMPTS = 4, RETRY_MS = 45 * 1000;
 
@@ -29,32 +35,48 @@ let lastVisitTry = 0;   // per isolate
 
 const runLog = env => env.RUN_LOG && env.RUN_LOG.get(env.RUN_LOG.idFromName('metra'));
 
-export async function metraAlerts(env, ctx, request) {
+// The location hint only counts when the object is first created, so the name carries the region: changing the
+// hint means a new name.
+const fetcher = env => env.METRA_FETCHER?.get(env.METRA_FETCHER.idFromName('enam'), { locationHint: 'enam' });
+
+export class MetraFetcher extends DurableObject {
+  // One timed request to Metra from wherever this object lives; the result includes that data center.
+  async attempt() {
+    this.colo ||= await currentColo();
+    return { ...await attempt(this.env), colo: this.colo };
+  }
+}
+
+// Through the US-pinned fetcher when it's bound (local dev without it: direct). Never throws.
+async function usAttempt(env) {
+  const f = fetcher(env);
+  if (!f) return { ...await attempt(env), colo: await currentColo() };
+  try { return await f.attempt(); }
+  catch (e) { return { at: new Date().toISOString(), status: 0, ok: false, error: `fetcher: ${e.message || e}` }; }
+}
+
+export async function metraAlerts(env, ctx) {
   if (!env.METRA_API_TOKEN) return json({ error: 'Metra alerts are not configured', alerts: [] }, 60, 503);
   const stored = env.CACHE && await env.CACHE.get(KV_KEY, 'json');
   if (stored) {
     const age = Date.now() - Date.parse(stored.fetched || stored.updated);
     if (ctx && age > VISIT_REFRESH_AFTER_MS && Date.now() - lastVisitTry > VISIT_TRY_EVERY_MS) {
       lastVisitTry = Date.now();
-      ctx.waitUntil(visitRefresh(env, request?.cf?.colo));   // one attempt, well inside waitUntil's ~30 s
+      ctx.waitUntil(visitRefresh(env));   // one attempt, well inside waitUntil's ~30 s
     }
     return json(stored, 60);
   }
   // Nothing stored yet (first deploy, or no KV binding): one live attempt, and seed KV if it works.
-  try {
-    const body = await fetchOnce(env);
-    if (env.CACHE) await env.CACHE.put(KV_KEY, JSON.stringify(body));
-    return json(body, 60);
-  } catch (e) {
-    // Only our own message: never forward Metra's response body or anything containing the request.
-    return json({ error: String(e.message || e), alerts: [] }, 30, 502);
-  }
+  const t = await usAttempt(env);
+  if (!t.body) return json({ error: t.error, alerts: [] }, 30, 502);   // only our own message, never Metra's body
+  if (env.CACHE) await env.CACHE.put(KV_KEY, JSON.stringify(t.body));
+  return json(t.body, 60);
 }
 
-async function visitRefresh(env, colo) {
-  const t = await attempt(env);
+async function visitRefresh(env) {
+  const t = await usAttempt(env);
   if (t.body) await env.CACHE.put(KV_KEY, JSON.stringify(t.body));
-  await record(env, `visit ${t.at}`, 'visit', colo, [t]);
+  await record(env, `visit ${t.at}`, 'visit', [t]);
 }
 
 // One request to Metra, timed, with what the log needs. Never throws.
@@ -69,14 +91,14 @@ async function attempt(env) {
   }
 }
 
-async function record(env, run, source, colo, tries) {
+async function record(env, run, source, tries) {
   try {
-    await runLog(env)?.record(tries.map((t, i) => ({ run, source, attempt: i + 1, colo: colo || '', at: t.at, ms: t.ms,
+    await runLog(env)?.record(tries.map((t, i) => ({ run, source, attempt: i + 1, colo: t.colo || '', at: t.at, ms: t.ms,
       status: t.status, ok: t.ok, server: t.server || '', ratelimit: t.ratelimit || '', gateway: t.gateway || false, error: t.error || '' })));
   } catch (e) { console.log(`run log failed: ${e.message || e}`); }
 }
 
-// The Cloudflare data center running this code, for scheduled runs (visits read request.cf.colo).
+// The Cloudflare data center running this code (where requests to Metra leave from).
 async function currentColo() {
   try {
     const r = await fetch('https://www.cloudflare.com/cdn-cgi/trace');
@@ -88,17 +110,16 @@ async function currentColo() {
 export async function refreshMetra(env, { attempts = ATTEMPTS, retryMs = RETRY_MS } = {}) {
   if (!env.METRA_API_TOKEN || !env.CACHE) return 'skipped: not configured';
   const run = `cron ${new Date().toISOString()}`;
-  const colo = await currentColo();
   const tries = [];
   for (let n = 1; n <= attempts; n++) {
-    const t = await attempt(env);
+    const t = await usAttempt(env);
     tries.push(t);
     if (t.body) { await env.CACHE.put(KV_KEY, JSON.stringify(t.body)); break; }
     if (n < attempts) await new Promise(res => setTimeout(res, retryMs));
   }
-  await record(env, run, 'cron', colo, tries);
+  await record(env, run, 'cron', tries);
   const last = tries.at(-1);
-  return last.ok ? `stored on attempt ${tries.length} (${colo})` : `kept previous copy: ${last.error} after ${attempts} attempts (${colo})`;
+  return last.ok ? `stored on attempt ${tries.length} (${last.colo})` : `kept previous copy: ${last.error} after ${attempts} attempts (${last.colo})`;
 }
 
 // For /api/status: the stored copy's times and counts, and the request log summary. Never includes the token.
