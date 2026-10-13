@@ -17,14 +17,27 @@ const CAUSE = ['', 'UNKNOWN_CAUSE', 'OTHER_CAUSE', 'TECHNICAL_PROBLEM', 'STRIKE'
 // The copy keeps Metra's own feed time (`updated`), so the page's "as of" stays truthful. Writes happen only on
 // success: at most 288/day, inside the free plan's 1,000.
 const KV_KEY = 'metra-alerts';
-const RUNS_KEY = 'metra-runs';   // last 24 scheduled runs, for /status
+const RUNS_KEY = 'metra-runs';   // last 24 refresh attempts (scheduled and page-visit), for /status
 const RUNS_KEPT = 24;
 const ATTEMPTS = 4, RETRY_MS = 45 * 1000;
 
-export async function metraAlerts(env) {
+// Page visits also help: if the saved copy is over 5 minutes old, the Worker answers with it right away and then
+// makes ONE background attempt from the visitor's data center (scheduled runs may come from addresses Metra's WAF
+// blocks more often). At most one try per isolate every 2 minutes, so bursts of visitors don't pile onto Metra.
+const VISIT_REFRESH_AFTER_MS = 5 * 60 * 1000, VISIT_TRY_EVERY_MS = 2 * 60 * 1000;
+let lastVisitTry = 0;   // per isolate
+
+export async function metraAlerts(env, ctx) {
   if (!env.METRA_API_TOKEN) return json({ error: 'Metra alerts are not configured', alerts: [] }, 60, 503);
   const stored = env.CACHE && await env.CACHE.get(KV_KEY, 'json');
-  if (stored) return json(stored, 60);
+  if (stored) {
+    const age = Date.now() - Date.parse(stored.fetched || stored.updated);
+    if (ctx && age > VISIT_REFRESH_AFTER_MS && Date.now() - lastVisitTry > VISIT_TRY_EVERY_MS) {
+      lastVisitTry = Date.now();
+      ctx.waitUntil(visitRefresh(env));   // one attempt, well inside waitUntil's ~30 s
+    }
+    return json(stored, 60);
+  }
   // Nothing stored yet (first deploy, or no KV binding): one live attempt, and seed KV if it works.
   try {
     const body = await fetchOnce(env);
@@ -34,6 +47,24 @@ export async function metraAlerts(env) {
     // Only our own message: never forward Metra's response body or anything containing the request.
     return json({ error: String(e.message || e), alerts: [] }, 30, 502);
   }
+}
+
+async function visitRefresh(env) {
+  const started = new Date().toISOString();
+  try {
+    await env.CACHE.put(KV_KEY, JSON.stringify(await fetchOnce(env)));
+    await recordRun(env, { at: started, source: 'visit', ok: true, attempts: 1, summary: 'stored', errors: [] });
+  } catch (e) {
+    await recordRun(env, { at: started, source: 'visit', ok: false, attempts: 1, summary: 'kept previous copy', errors: [String(e.message || e)] });
+  }
+}
+
+async function recordRun(env, run) {
+  try {
+    const runs = (await env.CACHE.get(RUNS_KEY, 'json')) || [];
+    runs.unshift(run);
+    await env.CACHE.put(RUNS_KEY, JSON.stringify(runs.slice(0, RUNS_KEPT)));
+  } catch (e) { /* history is best effort */ }
 }
 
 // Cron Trigger handler body. Returns a short outcome string, and records it in the run history for /status
@@ -54,11 +85,7 @@ export async function refreshMetra(env, { attempts = ATTEMPTS, retryMs = RETRY_M
     }
   }
   outcome ||= { ok: false, attempts, summary: `kept previous copy: ${errors.at(-1)} after ${attempts} attempts` };
-  try {
-    const runs = (await env.CACHE.get(RUNS_KEY, 'json')) || [];
-    runs.unshift({ at: started, ...outcome, errors });
-    await env.CACHE.put(RUNS_KEY, JSON.stringify(runs.slice(0, RUNS_KEPT)));
-  } catch (e) { /* history is best effort */ }
+  await recordRun(env, { at: started, source: 'cron', ...outcome, errors });
   return outcome.summary;
 }
 

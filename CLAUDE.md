@@ -189,6 +189,10 @@ Researched for the accessibility follow-up:
   If blocking persists, ask Metra to allow Cloudflare Workers egress.
 - `scheduled()` AWAITS refreshMetra; the first version used ctx.waitUntil, whose ~30 s post-return budget killed
   runs during the 45 s retry wait, so the stored copy never refreshed.
+- Page-visit refresh (owner's call, Oct 12): `/api/metra-alerts` returns the KV copy immediately; if it's >5 min
+  old it makes ONE background attempt via ctx.waitUntil (fits its ~30 s), max once per isolate per 2 min, recorded
+  in `metra-runs` with `source:'visit'` (scheduled runs `source:'cron'`). Reason: the first fixed cron run (8:30 PM)
+  got 403 on all 4 attempts while visitor-colo requests got through ~50%.
 - `/status` (public/status.html + `GET /api/status`, src/status.js): live CTA feed check, Metra saved copy age and
   counts, last 24 scheduled runs (KV key `metra-runs`, written each run), deployed version (`[version_metadata]`
   binding CF_VERSION), station data counts. Public by the owner's choice; shows only whether keys are set.

@@ -23,9 +23,9 @@
   <section>
     <h2>Metra accessibility alerts</h2>
     <dl id="metra"><dt>Status</dt><dd>Checking…</dd></dl>
-    <p class="muted">A scheduled job fetches Metra's feed every 5 minutes, trying up to 4 times 45 seconds apart (Metra's firewall blocks some requests), and saves the last good copy. The map is served from that copy.</p>
-    <h3>Recent scheduled runs</h3>
-    <div class="table-wrap"><table id="runs"><thead><tr><th>Started</th><th>Result</th><th>Attempts</th><th>Errors</th></tr></thead><tbody><tr><td colspan="4">Checking…</td></tr></tbody></table></div>
+    <p class="muted">A scheduled job fetches Metra's feed every 5 minutes, trying up to 4 times 45 seconds apart (Metra's firewall blocks some requests), and saves the last good copy. The map is served from that copy. When the copy is over 5 minutes old, a page visit also triggers one background attempt.</p>
+    <h3>Recent refresh attempts</h3>
+    <div class="table-wrap"><table id="runs"><thead><tr><th>Started</th><th>Source</th><th>Result</th><th>Attempts</th><th>Errors</th></tr></thead><tbody><tr><td colspan="5">Checking…</td></tr></tbody></table></div>
   </section>
 
   <section>
@@ -88,10 +88,11 @@ async function load(){
   const runs = m.runs || [];
   document.querySelector('#runs tbody').innerHTML = runs.length ? runs.map(r => `<tr>
       <td>${time(r.at)} <span class="muted">${ago(r.at)}</span></td>
+      <td>${r.source === 'visit' ? 'Page visit' : 'Scheduled'}</td>
       <td>${r.ok ? state('ok', 'Saved') : state('bad', 'Kept previous copy')}</td>
       <td>${r.attempts}</td>
       <td>${r.errors && r.errors.length ? esc(r.errors.map(e => e.replace(/^Metra returned /, '')).join(', ')) : '—'}</td></tr>`).join('')
-    : '<tr><td colspan="4">No scheduled runs recorded yet (the first lands within 5 minutes of a deploy).</td></tr>';
+    : '<tr><td colspan="5">No refresh attempts recorded yet (the first scheduled one lands within 5 minutes of a deploy).</td></tr>';
 
   const d = s.deploy, st = (typeof CTA_DATA !== 'undefined') ? CTA_DATA : null;
   document.getElementById('deploy').innerHTML = rows([
