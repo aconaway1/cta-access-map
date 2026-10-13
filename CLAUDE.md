@@ -179,8 +179,14 @@ Researched for the accessibility follow-up:
   401 `{"message":"Unauthenticated"}` from IIS. Intermittent 403s (about 1 in 3 requests, in ~30 s runs) come
   from Metra's Azure Application Gateway WAF, not the API, and hit header and `?api_token=` forms alike, so the
   Worker retries once after 1.5 s and then serves the isolate's last good response (<15 min, `cached:true`,
-  Metra's own `updated` time kept). The page retries a failed first load after 30 s. If this gets worse, ask
-  Metra to allow Cloudflare Workers egress.
+  Metra's own `updated` time kept). The page retries a failed first load after 30 s.
+  Superseded Oct 12 evening (block rate reached ~50%): a Cron Trigger every 5 min (`[triggers]` in wrangler.toml)
+  runs `refreshMetra()`, up to 4 tries 45 s apart, and stores the last good copy (plus `fetched`) in KV namespace
+  `cta-access-map-cache` (binding `CACHE`, id in wrangler.toml; not secret). `/api/metra-alerts` serves the KV
+  copy; one live fetch only if KV is empty. Writes only on success (≤288/day, free plan allows 1,000). The page
+  marks Metra data older than 30 min "may be out of date". Owner chose 5 min (fresh enough; 10 would compound
+  blocked runs). Don't use the KV page's "Connect" button: bindings must live in wrangler.toml or deploys drop them.
+  If blocking persists, ask Metra to allow Cloudflare Workers egress.
 - The key kept vanishing (Oct 12): every Workers Builds deploy runs `wrangler deploy`, which wipes dashboard
   variables saved as plain Text (the dashboard's default type). `keep_vars = true` is now in wrangler.toml, and the
   variable must be type Secret. If Metra suddenly shows "not configured" after a push, check this first. Small built-in protobuf

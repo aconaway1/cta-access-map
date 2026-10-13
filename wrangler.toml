@@ -12,3 +12,13 @@ keep_vars = true
 
 [assets]
 directory = "./public"
+
+# Last good copy of Metra's alert feed (see src/metra.js). The namespace ID isn't a secret: it's only usable from
+# this Cloudflare account. The binding must live here, not in the dashboard, or deploys would drop it.
+[[kv_namespaces]]
+binding = "CACHE"
+id = "0afc61d11e2d4d31aed30f6c4c7e50f2"
+
+# Refresh the stored Metra alerts every 5 minutes (refreshMetra: up to 4 tries, 45 s apart).
+[triggers]
+crons = ["*/5 * * * *"]
