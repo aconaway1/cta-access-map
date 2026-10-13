@@ -24,6 +24,8 @@
     <h2>Metra accessibility alerts</h2>
     <dl id="metra"><dt>Status</dt><dd>Checking…</dd></dl>
     <p class="muted">A scheduled job fetches Metra's feed every 5 minutes, trying up to 4 times 45 seconds apart (Metra's firewall blocks some requests), and saves the last good copy. The map is served from that copy. When the copy is over 5 minutes old, a page visit also triggers one background attempt.</p>
+    <h3>By hour</h3>
+    <div class="table-wrap"><table id="hourly"><thead><tr><th>Hour</th><th>Scheduled: tries that got through</th><th>Page visits: tries that got through</th></tr></thead><tbody><tr><td colspan="3">Checking…</td></tr></tbody></table></div>
     <h3>Recent refresh attempts</h3>
     <div class="table-wrap"><table id="runs"><thead><tr><th>Started</th><th>Source</th><th>Result</th><th>Attempts</th><th>Errors</th></tr></thead><tbody><tr><td colspan="5">Checking…</td></tr></tbody></table></div>
   </section>
@@ -93,6 +95,13 @@ async function load(){
       <td>${r.attempts}</td>
       <td>${r.errors && r.errors.length ? esc(r.errors.map(e => e.replace(/^Metra returned /, '')).join(', ')) : '—'}</td></tr>`).join('')
     : '<tr><td colspan="5">No refresh attempts recorded yet (the first scheduled one lands within 5 minutes of a deploy).</td></tr>';
+
+  const pct = (ok, n) => n ? `${ok} of ${n} <span class="muted">(${Math.round(100 * ok / n)}%)</span>` : '<span class="muted">—</span>';
+  const hourLabel = t => new Date(t).toLocaleString([], {month:'short', day:'numeric', hour:'numeric'});
+  const hours = m.hourly || [];
+  document.querySelector('#hourly tbody').innerHTML = hours.length ? hours.map(h => `<tr>
+      <td>${hourLabel(h.hour)}</td><td>${pct(h.cron.ok, h.cron.tries)}</td><td>${pct(h.visit.ok, h.visit.tries)}</td></tr>`).join('')
+    : '<tr><td colspan="3">No attempts recorded yet.</td></tr>';
 
   const d = s.deploy, st = (typeof CTA_DATA !== 'undefined') ? CTA_DATA : null;
   document.getElementById('deploy').innerHTML = rows([

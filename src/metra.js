@@ -17,8 +17,9 @@ const CAUSE = ['', 'UNKNOWN_CAUSE', 'OTHER_CAUSE', 'TECHNICAL_PROBLEM', 'STRIKE'
 // The copy keeps Metra's own feed time (`updated`), so the page's "as of" stays truthful. Writes happen only on
 // success: at most 288/day, inside the free plan's 1,000.
 const KV_KEY = 'metra-alerts';
-const RUNS_KEY = 'metra-runs';   // last 24 refresh attempts (scheduled and page-visit), for /status
-const RUNS_KEPT = 24;
+const RUNS_KEY = 'metra-runs';   // refresh attempts (scheduled and page-visit), newest first, for /status
+const RUNS_KEPT = 300;           // ~25 h of scheduled runs; ~75 KB, still one write per attempt
+const RUNS_SHOWN = 24;
 const ATTEMPTS = 4, RETRY_MS = 45 * 1000;
 
 // Page visits also help: if the saved copy is over 5 minutes old, the Worker answers with it right away and then
@@ -98,8 +99,24 @@ export async function metraStatus(env) {
     kvBound: Boolean(env.CACHE),
     copy: copy && { updated: copy.updated, fetched: copy.fetched || null, alerts: copy.alerts.length,
       accessibility: copy.alerts.filter(a => /elevator|escalator|\bramps?\b|\bADA\b|accessib|wheelchair/i.test(`${a.header} ${a.description}`)).length },
-    runs,
+    runs: runs.slice(0, RUNS_SHOWN),
+    hourly: hourly(runs),
+    kept: runs.length,
   };
+}
+
+// Per-hour totals over the kept history, newest hour first: tries (individual requests to Metra) and how many
+// got through, split by source. A scheduled run counts its attempts as tries; it succeeds at most once.
+function hourly(runs) {
+  const by = new Map();
+  for (const r of runs) {
+    const hour = r.at.slice(0, 13) + ':00:00.000Z';
+    const h = by.get(hour) || { hour, cron: { runs: 0, tries: 0, ok: 0 }, visit: { runs: 0, tries: 0, ok: 0 } };
+    const k = r.source === 'visit' ? h.visit : h.cron;
+    k.runs++; k.tries += r.attempts || 1; k.ok += r.ok ? 1 : 0;
+    by.set(hour, h);
+  }
+  return [...by.values()].sort((a, b) => b.hour.localeCompare(a.hour)).slice(0, 26);
 }
 
 async function fetchOnce(env) {

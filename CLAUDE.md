@@ -199,7 +199,8 @@ Researched for the accessibility follow-up:
   in `metra-runs` with `source:'visit'` (scheduled runs `source:'cron'`). Reason: the first fixed cron run (8:30 PM)
   got 403 on all 4 attempts while visitor-colo requests got through ~50%.
 - `/status` (public/status.html + `GET /api/status`, src/status.js): live CTA feed check, Metra saved copy age and
-  counts, last 24 scheduled runs (KV key `metra-runs`, written each run), deployed version (`[version_metadata]`
+  counts, refresh attempts (KV key `metra-runs`, written each attempt, keeps 300 ≈ 25 h; page shows the newest 24
+  plus per-hour totals of tries that got through, by source), deployed version (`[version_metadata]`
   binding CF_VERSION), station data counts. Public by the owner's choice; shows only whether keys are set.
 - The key kept vanishing (Oct 12): every Workers Builds deploy runs `wrangler deploy`, which wipes dashboard
   variables saved as plain Text (the dashboard's default type). `keep_vars = true` is now in wrangler.toml, and the
