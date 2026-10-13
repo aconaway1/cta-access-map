@@ -187,6 +187,11 @@ Researched for the accessibility follow-up:
   marks Metra data older than 30 min "may be out of date". Owner chose 5 min (fresh enough; 10 would compound
   blocked runs). Don't use the KV page's "Connect" button: bindings must live in wrangler.toml or deploys drop them.
   If blocking persists, ask Metra to allow Cloudflare Workers egress.
+- `scheduled()` AWAITS refreshMetra; the first version used ctx.waitUntil, whose ~30 s post-return budget killed
+  runs during the 45 s retry wait, so the stored copy never refreshed.
+- `/status` (public/status.html + `GET /api/status`, src/status.js): live CTA feed check, Metra saved copy age and
+  counts, last 24 scheduled runs (KV key `metra-runs`, written each run), deployed version (`[version_metadata]`
+  binding CF_VERSION), station data counts. Public by the owner's choice; shows only whether keys are set.
 - The key kept vanishing (Oct 12): every Workers Builds deploy runs `wrangler deploy`, which wipes dashboard
   variables saved as plain Text (the dashboard's default type). `keep_vars = true` is now in wrangler.toml, and the
   variable must be type Secret. If Metra suddenly shows "not configured" after a push, check this first. Small built-in protobuf

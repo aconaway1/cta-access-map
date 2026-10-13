@@ -13,6 +13,10 @@ keep_vars = true
 [assets]
 directory = "./public"
 
+# Deployed version ID and time, shown on /status.
+[version_metadata]
+binding = "CF_VERSION"
+
 # Last good copy of Metra's alert feed (see src/metra.js). The namespace ID isn't a secret: it's only usable from
 # this Cloudflare account. The binding must live here, not in the dashboard, or deploys would drop it.
 [[kv_namespaces]]

@@ -17,6 +17,7 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:14px/1.
 .sw{width:18px;height:4px;border-radius:2px;background:var(--c)}
 .sw.dash{background:repeating-linear-gradient(90deg,var(--muted) 0 5px,transparent 5px 8px)}
 .note{font-size:12px;color:var(--muted);margin:8px 0 0}
+.note a{color:inherit}
 .note.warn{color:var(--warn-text);font-weight:600}
 .dot{width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:14px;color:#fff;border:2px solid #fff;box-sizing:border-box;position:relative;flex:none}
 .dot.y{background:var(--ok)}.dot.n{background:var(--no)}.dot.c{background:var(--closed);color:#222}
@@ -70,3 +71,22 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:14px/1.
 #metra li{margin:0 0 6px;color:var(--fg)}
 #metra .chips{display:inline-flex;margin:0 6px 0 0;vertical-align:middle}
 #metra .chip{font-size:10px;padding:0 4px}
+/* /status page */
+body.status-page{height:auto;min-height:100%}
+.status-page main{max-width:820px;margin:0 auto;padding:16px 16px 40px}
+.status-page h1{font-size:20px;margin:8px 0 4px}
+.status-page h2{font-size:16px;margin:24px 0 8px;padding-top:16px;border-top:1px solid var(--border)}
+.status-page h3{font-size:13px;margin:16px 0 6px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.status-page a{color:inherit}
+.status-page .muted{color:var(--muted)}
+.status-page p{margin:6px 0}
+.status-page dl{display:grid;grid-template-columns:max-content 1fr;gap:6px 16px;margin:0}
+.status-page dt{color:var(--muted)}
+.status-page dd{margin:0}
+.status-page .state{font-weight:600}
+.status-page .state.ok{color:var(--ok-text)}.status-page .state.warn{color:var(--warn-text)}.status-page .state.bad{color:var(--no-text)}
+.status-page .table-wrap{overflow-x:auto}
+.status-page table{border-collapse:collapse;width:100%;font-size:13px}
+.status-page th,.status-page td{text-align:left;padding:5px 10px 5px 0;border-bottom:1px solid var(--border);vertical-align:top}
+.status-page th{color:var(--muted);font-weight:600}
+@media (max-width:600px){.status-page dl{grid-template-columns:1fr}.status-page dt{margin-top:6px}}

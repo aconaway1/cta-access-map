@@ -17,6 +17,8 @@ const CAUSE = ['', 'UNKNOWN_CAUSE', 'OTHER_CAUSE', 'TECHNICAL_PROBLEM', 'STRIKE'
 // The copy keeps Metra's own feed time (`updated`), so the page's "as of" stays truthful. Writes happen only on
 // success: at most 288/day, inside the free plan's 1,000.
 const KV_KEY = 'metra-alerts';
+const RUNS_KEY = 'metra-runs';   // last 24 scheduled runs, for /status
+const RUNS_KEPT = 24;
 const ATTEMPTS = 4, RETRY_MS = 45 * 1000;
 
 export async function metraAlerts(env) {
@@ -34,21 +36,43 @@ export async function metraAlerts(env) {
   }
 }
 
-// Cron Trigger handler body. Returns a short outcome string (visible in the dashboard's cron event log).
+// Cron Trigger handler body. Returns a short outcome string, and records it in the run history for /status
+// (one more KV write per run: with the data writes, at most 576/day, under the free plan's 1,000).
 export async function refreshMetra(env, { attempts = ATTEMPTS, retryMs = RETRY_MS } = {}) {
   if (!env.METRA_API_TOKEN || !env.CACHE) return 'skipped: not configured';
-  let last = '';
-  for (let n = 1; n <= attempts; n++) {
+  const started = new Date().toISOString();
+  const errors = [];
+  let outcome = null;
+  for (let n = 1; n <= attempts && !outcome; n++) {
     try {
       const body = await fetchOnce(env);
       await env.CACHE.put(KV_KEY, JSON.stringify(body));
-      return `stored on attempt ${n}`;
+      outcome = { ok: true, attempts: n, summary: `stored on attempt ${n}` };
     } catch (e) {
-      last = String(e.message || e);
+      errors.push(String(e.message || e));
       if (n < attempts) await new Promise(res => setTimeout(res, retryMs));
     }
   }
-  return `kept previous copy: ${last} after ${attempts} attempts`;
+  outcome ||= { ok: false, attempts, summary: `kept previous copy: ${errors.at(-1)} after ${attempts} attempts` };
+  try {
+    const runs = (await env.CACHE.get(RUNS_KEY, 'json')) || [];
+    runs.unshift({ at: started, ...outcome, errors });
+    await env.CACHE.put(RUNS_KEY, JSON.stringify(runs.slice(0, RUNS_KEPT)));
+  } catch (e) { /* history is best effort */ }
+  return outcome.summary;
+}
+
+// For /api/status: the stored copy's times and counts, and the run history. Never includes the token.
+export async function metraStatus(env) {
+  const copy = env.CACHE ? await env.CACHE.get(KV_KEY, 'json') : null;
+  const runs = env.CACHE ? (await env.CACHE.get(RUNS_KEY, 'json')) || [] : [];
+  return {
+    keySet: Boolean(env.METRA_API_TOKEN),
+    kvBound: Boolean(env.CACHE),
+    copy: copy && { updated: copy.updated, fetched: copy.fetched || null, alerts: copy.alerts.length,
+      accessibility: copy.alerts.filter(a => /elevator|escalator|\bramps?\b|\bADA\b|accessib|wheelchair/i.test(`${a.header} ${a.description}`)).length },
+    runs,
+  };
 }
 
 async function fetchOnce(env) {

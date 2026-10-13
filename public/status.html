@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CTA L Access Status</title>
+<meta name="description" content="Health of the CTA and Metra data behind the CTA L access map.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="status-page">
+<main>
+  <header>
+    <h1>CTA L access: data status</h1>
+    <p class="muted"><a href="/">Back to the map</a> · <span id="checked">Checking…</span> · refreshes every minute</p>
+  </header>
+
+  <section>
+    <h2>CTA elevator alerts</h2>
+    <dl id="cta"><dt>Status</dt><dd>Checking…</dd></dl>
+    <p class="muted">Checked live when this page loads. The map's <code>/api/elevators</code> fetches the same feed, cached for 2 minutes.</p>
+  </section>
+
+  <section>
+    <h2>Metra accessibility alerts</h2>
+    <dl id="metra"><dt>Status</dt><dd>Checking…</dd></dl>
+    <p class="muted">A scheduled job fetches Metra's feed every 5 minutes, trying up to 4 times 45 seconds apart (Metra's firewall blocks some requests), and saves the last good copy. The map is served from that copy.</p>
+    <h3>Recent scheduled runs</h3>
+    <div class="table-wrap"><table id="runs"><thead><tr><th>Started</th><th>Result</th><th>Attempts</th><th>Errors</th></tr></thead><tbody><tr><td colspan="4">Checking…</td></tr></tbody></table></div>
+  </section>
+
+  <section>
+    <h2>Deployment and station data</h2>
+    <dl id="deploy"><dt>Version</dt><dd>Checking…</dd></dl>
+  </section>
+</main>
+<script src="cta-data.js"></script>
+<script>
+// Renders /api/status. Keys are never sent by the API; it only says whether they're set.
+const esc = t => String(t).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const time = t => t ? new Date(t).toLocaleString([], {month:'short', day:'numeric', hour:'numeric', minute:'2-digit', second:'2-digit'}) : '—';
+function ago(t){
+  if(!t) return '';
+  const m = Math.round((Date.now() - Date.parse(t)) / 60000);
+  return m < 1 ? 'just now' : m < 90 ? `${m} min ago` : `${Math.round(m/60)} h ago`;
+}
+const state = (cls, text) => `<span class="state ${cls}">${esc(text)}</span>`;
+const rows = pairs => pairs.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v}</dd>`).join('');
+
+async function load(){
+  let s;
+  try{
+    const r = await fetch('/api/status', {cache:'no-store'});
+    if(!r.ok) throw new Error(`HTTP ${r.status}`);
+    s = await r.json();
+  }catch(e){
+    document.getElementById('checked').textContent = `Status check failed (${e.message}) at ${time(new Date())}`;
+    return;
+  }
+  document.getElementById('checked').textContent = `Checked ${time(s.now)}`;
+
+  const c = s.cta;
+  document.getElementById('cta').innerHTML = rows(c.ok ? [
+    ['Status', state('ok', 'Responding')],
+    ['Response time', `${c.ms} ms`],
+    ['Accessibility alerts', `${c.alerts} active, ${c.stationAlerts} naming L stations`],
+  ] : [
+    ['Status', state('bad', 'Not responding')],
+    ['Error', esc(c.error)],
+    ['Time to fail', `${c.ms} ms`],
+  ]);
+
+  const m = s.metra, copy = m.copy;
+  const age = copy ? (Date.now() - Date.parse(copy.fetched || copy.updated)) / 60000 : Infinity;
+  const fresh = !m.keySet || !m.kvBound ? state('bad', 'Not configured')
+    : !copy ? state('bad', 'No saved copy yet')
+    : age <= 15 ? state('ok', 'Fresh') : age <= 30 ? state('warn', 'Getting old') : state('bad', 'Stale: the map shows it as possibly out of date');
+  document.getElementById('metra').innerHTML = rows([
+    ['Status', fresh],
+    ['API key', m.keySet ? 'Set (Worker secret)' : state('bad', 'Not set')],
+    ['Saved-copy storage (KV)', m.kvBound ? 'Bound' : state('bad', 'Not bound')],
+    ...(copy ? [
+      ['Copy saved', `${time(copy.fetched)} <span class="muted">(${ago(copy.fetched)})</span>`],
+      ["Metra's feed time", `${time(copy.updated)} <span class="muted">(${ago(copy.updated)})</span>`],
+      ['Alerts', `${copy.alerts} in the feed, ${copy.accessibility} about accessibility`],
+    ] : []),
+  ]);
+
+  const runs = m.runs || [];
+  document.querySelector('#runs tbody').innerHTML = runs.length ? runs.map(r => `<tr>
+      <td>${time(r.at)} <span class="muted">${ago(r.at)}</span></td>
+      <td>${r.ok ? state('ok', 'Saved') : state('bad', 'Kept previous copy')}</td>
+      <td>${r.attempts}</td>
+      <td>${r.errors && r.errors.length ? esc(r.errors.map(e => e.replace(/^Metra returned /, '')).join(', ')) : '—'}</td></tr>`).join('')
+    : '<tr><td colspan="4">No scheduled runs recorded yet (the first lands within 5 minutes of a deploy).</td></tr>';
+
+  const d = s.deploy, st = (typeof CTA_DATA !== 'undefined') ? CTA_DATA : null;
+  document.getElementById('deploy').innerHTML = rows([
+    ['Live version', d ? `<code>${esc((d.id || '').slice(0, 8))}</code>${d.tag ? ` (${esc(d.tag)})` : ''}` : '—'],
+    ['Deployed', d && d.timestamp ? `${time(d.timestamp)} <span class="muted">(${ago(d.timestamp)})</span>` : '—'],
+    ['Station data', st ? `${st.stations.length} stations, ${st.stations.filter(x => x.k === 'y').length} with elevators; generated ${esc(st.generated)}` : '—'],
+  ]);
+}
+load();
+setInterval(load, 60 * 1000);
+</script>
+</body>
+</html>
