@@ -220,6 +220,9 @@ Researched for the accessibility follow-up:
 - FIX (Oct 13): every request to Metra goes through the `MetraFetcher` Durable Object (src/metra.js, binding
   `METRA_FETCHER`, migration v2), instance name 'enam' created with `locationHint: 'enam'`. A DO runs where it was
   placed, wherever the cron/visitor landed. The hint only applies at creation; to move it, use a new instance name.
+  First run after deploy: 200 on attempt 1 from ATL. Note: the logged Server header reads `cloudflare` on Worker
+  subrequests either way (Cloudflare rewrites it), so the `gateway` flag (Azure error page in the body) is what
+  identifies Metra's gateway.
 - Workers Builds stopped picking up pushes on Oct 13 morning (no check run on GitHub, project still shown as linked,
   no Cloudflare incident). Deployed with `npx wrangler deploy` (owner logged in with `wrangler login`).
 - The key kept vanishing (Oct 12): every Workers Builds deploy runs `wrangler deploy`, which wipes dashboard
