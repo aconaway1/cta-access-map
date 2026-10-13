@@ -94,6 +94,8 @@ Systemwide (2026-10-11):
   stretches just beyond downtown are dashed (`subway`). Everything farther out is drawn solid (no subway info).
 - Generated `alt`: along each GTFS trip pattern, nearest accessible station each way (ride semantics hold on
   two-way track), up to six, with distance (grid, or straight line +25% if shorter) and compass direction.
+  At multi-line stations each entry names the line(s) ("Green Line, next stop west" vs "Pink Line, next stop
+  south" at Ashland; owner found the unlabeled version confusing, Oct 13). Same rule in the hand entries.
 - Popups also offer stations with elevators on OTHER lines (no line in common) when they're closer than every
   listed alternative and within 1.5 mi, up to two (`alternatives()` in app.js, computed at runtime so downtown
   hand lists get it too), e.g. Pulaski (Green) 0.8 mi for Pulaski (Blue), Jackson (Red) ↔ Jackson (Blue).

@@ -252,7 +252,9 @@ def main():
                     hops = j - i
                     best = alts.setdefault(m, {})
                     if n not in best or hops < best[n]['hops']:
-                        best[n] = {'hops': hops, 'line': line}
+                        best[n] = {'hops': hops, 'lines': {line}}
+                    elif hops == best[n]['hops']:
+                        best[n]['lines'].add(line)
                     break
 
     stations = []
@@ -265,7 +267,13 @@ def main():
                 d = miles(g['ll'], groups[n]['ll'])
                 where = compass(g['ll'], groups[n]['ll'])
                 hop = 'next stop' if info['hops'] == 1 else f"{info['hops']} stops"
-                rows_.append((d, [names[n], f"{d:.1f} mi · {hop} {where}"]))
+                # At multi-line stations, say which line: "next stop west" on Green and on Pink are different stops.
+                on = ''
+                if len(g['lines']) > 1:
+                    ls = [LINE_NAME[l] for l in g['lines'] if l in info['lines']]
+                    on = (' and '.join(ls) if len(ls) < 3 else ', '.join(ls[:-1]) + ' and ' + ls[-1]) + \
+                        (' Lines, ' if len(ls) > 1 else ' Line, ')
+                rows_.append((d, [names[n], f"{d:.1f} mi · {on}{hop} {where}"]))
             # Up to six: one per line and direction at three-line stations like Roosevelt.
             s['alt'] = [r for _, r in sorted(rows_)][:6]
         stations.append(s)

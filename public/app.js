@@ -9,7 +9,8 @@ const LIGHT_CHIP = new Set(['pink','yellow']);  // chips that need dark text
 // alt = nearest stations with elevators as [name, detail]; bus = accessible bus options as [route, detail].
 // alt means "use this station instead", which works in either direction. Loop lines run one way, so Loop entries
 // give which lines stop there, never "next stop"; that wording is only used on two-way track (Red, Blue,
-// Green/Pink west of the Loop, Brown/Purple north). Every entry starts with an approximate distance: along the
+// Green/Pink west of the Loop, Brown/Purple north), and at multi-line stations it names the line(s): "next stop
+// west" on Green and on Pink are different stations. Sorted by distance. Every entry starts with an approximate distance: along the
 // street grid, or straight line +15% where the Blue Line follows diagonal Milwaukee Ave.
 // Shown always for stairs-only stations, and for elevator stations while an elevator alert is active.
 // Downtown stations: hand-placed on the hand-drawn tracks, with labels, notes and Loop-aware alternatives.
@@ -30,13 +31,13 @@ const DOWNTOWN = [
   {id:40070,name:'Jackson (Blue)',ll:[41.8782,-87.6294],k:'y',lines:['blue'],side:'left',alt:[['Clark/Lake', '0.6 mi · 3 stops toward O’Hare'], ['UIC-Halsted', '1.2 mi · 3 stops toward Forest Park']]},
   {id:41340,name:'LaSalle (Blue)',ll:[41.8757,-87.6317],k:'n',lines:['blue'],side:'bottom',alt:[['Jackson (Blue)', '0.3 mi · next stop toward O’Hare']]},
   {id:40430,name:'Clinton (Blue)',ll:[41.8756,-87.6407],k:'n',lines:['blue'],side:'bottom',note:'Steep stairs. For step-free access to Union Station, use Clinton (Green/Pink).',alt:[['UIC-Halsted', '0.5 mi · next stop toward Forest Park'], ['Jackson (Blue)', '0.8 mi · 2 stops toward O’Hare']]},
-  {id:41160,name:'Clinton (Green/Pink)',ll:[41.8856,-87.6416],k:'y',lines:['green','pink'],side:'top',alt:[['Morgan', '0.5 mi · next stop west'], ['Clark/Lake', '0.6 mi · Green, Pink']]},
-  {id:41510,name:'Morgan',match:'Morgan',ll:[41.8856,-87.6524],k:'y',lines:['green','pink'],side:'top',alt:[['Clinton (Green/Pink)', '0.5 mi · next stop east'], ['Ashland (Green/Pink)', '0.8 mi · next stop west']]},
-  {id:40170,name:'Ashland (Green/Pink)',ll:[41.8853,-87.6667],k:'y',lines:['green','pink'],side:'top',alt:[['Morgan', '0.8 mi · next stop east'], ['Damen (Green)', '0.5 mi · next stop west'], ['Polk', '1.1 mi · next stop west']]},
+  {id:41160,name:'Clinton (Green/Pink)',ll:[41.8856,-87.6416],k:'y',lines:['green','pink'],side:'top',alt:[['Morgan', '0.5 mi · Green and Pink Lines, next stop west'], ['Clark/Lake', '0.6 mi · Green, Pink']]},
+  {id:41510,name:'Morgan',match:'Morgan',ll:[41.8856,-87.6524],k:'y',lines:['green','pink'],side:'top',alt:[['Clinton (Green/Pink)', '0.5 mi · Green and Pink Lines, next stop east'], ['Ashland (Green/Pink)', '0.8 mi · Green and Pink Lines, next stop west']]},
+  {id:40170,name:'Ashland (Green/Pink)',ll:[41.8853,-87.6667],k:'y',lines:['green','pink'],side:'top',alt:[['Damen (Green)', '0.5 mi · Green Line, next stop west'], ['Morgan', '0.8 mi · Green and Pink Lines, next stop east'], ['Polk', '1.1 mi · Pink Line, next stop south']]},
   {id:40350,name:'UIC-Halsted',match:'UIC-Halsted',ll:[41.8757,-87.6492],k:'y',lines:['blue'],side:'bottom',alt:[['Jackson (Blue)', '1.2 mi · 3 stops toward O’Hare'], ['Illinois Medical District', '1.3 mi · 2 stops toward Forest Park']]},
   // North of the river. No match names: Grand and Chicago each exist on several lines.
-  {id:40460,name:'Merchandise Mart',match:'Merchandise Mart',ll:[41.8890,-87.6339],k:'y',lines:['brown','purple'],side:'left',alt:[['Chicago (Brown/Purple)', '0.6 mi · next stop north'], ['Clark/Lake', '0.4 mi · Brown, Purple']]},
-  {id:40710,name:'Chicago (Brown/Purple)',ll:[41.8968,-87.6359],k:'y',lines:['brown','purple'],side:'left',alt:[['Merchandise Mart', '0.6 mi · next stop south'], ['Sedgwick', '1.1 mi · next stop north, Brown Line']],bus:[['#66 Chicago', 'east to Chicago (Red)']]},
+  {id:40460,name:'Merchandise Mart',match:'Merchandise Mart',ll:[41.8890,-87.6339],k:'y',lines:['brown','purple'],side:'left',alt:[['Clark/Lake', '0.4 mi · Brown, Purple'], ['Chicago (Brown/Purple)', '0.6 mi · Brown and Purple Lines, next stop north']]},
+  {id:40710,name:'Chicago (Brown/Purple)',ll:[41.8968,-87.6359],k:'y',lines:['brown','purple'],side:'left',alt:[['Merchandise Mart', '0.6 mi · Brown and Purple Lines, next stop south'], ['Sedgwick', '1.1 mi · Brown and Purple Lines, next stop north']],bus:[['#66 Chicago', 'east to Chicago (Red)']]},
   {id:40330,name:'Grand (Red)',ll:[41.8917,-87.6280],k:'y',lines:['red'],side:'right',alt:[['Chicago (Red)', '0.4 mi · next stop north'], ['Lake (Red)', '0.5 mi · next stop south']]},
   {id:41450,name:'Chicago (Red)',ll:[41.8967,-87.6281],k:'y',lines:['red'],side:'right',alt:[['Grand (Red)', '0.4 mi · next stop south'], ['Clark/Division', '0.7 mi · next stop north']],bus:[['#66 Chicago', 'west to Chicago (Brown/Purple)']]},
   {id:40490,name:'Grand (Blue)',ll:[41.8912,-87.6476],k:'n',lines:['blue'],side:'right',alt:[['Clark/Lake', '1.1 mi · next stop toward Forest Park'], ['Western (Blue, O’Hare branch)', '3.1 mi · 4 stops toward O’Hare']],bus:[['#56 Milwaukee', 'along Milwaukee Ave. to the Loop'], ['#65 Grand', 'east to Grand (Red)']]},
