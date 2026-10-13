@@ -10,38 +10,55 @@ const EFFECT = ['', 'NO_SERVICE', 'REDUCED_SERVICE', 'SIGNIFICANT_DELAYS', 'DETO
 const CAUSE = ['', 'UNKNOWN_CAUSE', 'OTHER_CAUSE', 'TECHNICAL_PROBLEM', 'STRIKE', 'DEMONSTRATION', 'ACCIDENT', 'HOLIDAY',
   'WEATHER', 'MAINTENANCE', 'CONSTRUCTION', 'POLICE_ACTIVITY', 'MEDICAL_EMERGENCY'];
 
-// Metra's Azure Application Gateway (WAF) intermittently answers 403 to requests from some Cloudflare egress
-// addresses, in runs of ~30 s, regardless of the (valid) key; a bad key gets 401 instead (seen Oct 12, 2026). So:
-// retry once, then serve the last good response from this isolate if it's under 15 minutes old. Its `updated` is
-// Metra's own feed time, so the page's "as of" stays truthful.
-const STALE_OK_MS = 15 * 60 * 1000;
-let lastGood = null;   // {body, at}; per isolate, best effort
+// Metra's Azure Application Gateway (WAF) intermittently answers 403 to requests from Cloudflare egress (roughly
+// half of them on Oct 12, 2026, in runs of ~30 s), regardless of the valid key; a bad key gets 401 instead. So the
+// feed is fetched on a schedule, not per page view: a Cron Trigger every 5 minutes calls refreshMetra(), which tries
+// up to 4 times 45 s apart and stores the last good copy in KV (binding CACHE). /api/metra-alerts serves that copy.
+// The copy keeps Metra's own feed time (`updated`), so the page's "as of" stays truthful. Writes happen only on
+// success: at most 288/day, inside the free plan's 1,000.
+const KV_KEY = 'metra-alerts';
+const ATTEMPTS = 4, RETRY_MS = 45 * 1000;
 
 export async function metraAlerts(env) {
   if (!env.METRA_API_TOKEN) return json({ error: 'Metra alerts are not configured', alerts: [] }, 60, 503);
+  const stored = env.CACHE && await env.CACHE.get(KV_KEY, 'json');
+  if (stored) return json(stored, 60);
+  // Nothing stored yet (first deploy, or no KV binding): one live attempt, and seed KV if it works.
   try {
-    let r = await fetchFeed(env);
-    if (r.status === 403) {
-      await new Promise(res => setTimeout(res, 1500));
-      r = await fetchFeed(env);
-    }
-    if (!r.ok) throw new Error(`Metra returned ${r.status}`);
-    const body = parseFeed(new Uint8Array(await r.arrayBuffer()));
-    lastGood = { body, at: Date.now() };
+    const body = await fetchOnce(env);
+    if (env.CACHE) await env.CACHE.put(KV_KEY, JSON.stringify(body));
     return json(body, 60);
   } catch (e) {
-    if (lastGood && Date.now() - lastGood.at < STALE_OK_MS) return json({ ...lastGood.body, cached: true }, 30);
     // Only our own message: never forward Metra's response body or anything containing the request.
     return json({ error: String(e.message || e), alerts: [] }, 30, 502);
   }
 }
 
-// Trimmed: a key pasted into the dashboard can carry whitespace. Sent as a header, never in the URL.
-function fetchFeed(env) {
-  return fetch(SOURCE, { headers: {
+// Cron Trigger handler body. Returns a short outcome string (visible in the dashboard's cron event log).
+export async function refreshMetra(env, { attempts = ATTEMPTS, retryMs = RETRY_MS } = {}) {
+  if (!env.METRA_API_TOKEN || !env.CACHE) return 'skipped: not configured';
+  let last = '';
+  for (let n = 1; n <= attempts; n++) {
+    try {
+      const body = await fetchOnce(env);
+      await env.CACHE.put(KV_KEY, JSON.stringify(body));
+      return `stored on attempt ${n}`;
+    } catch (e) {
+      last = String(e.message || e);
+      if (n < attempts) await new Promise(res => setTimeout(res, retryMs));
+    }
+  }
+  return `kept previous copy: ${last} after ${attempts} attempts`;
+}
+
+async function fetchOnce(env) {
+  // Trimmed: a key pasted into the dashboard can carry whitespace. Sent as a header, never in the URL.
+  const r = await fetch(SOURCE, { headers: {
     authorization: `Bearer ${env.METRA_API_TOKEN.trim()}`,
     'user-agent': 'cta-access-map (+https://github.com/aconaway1/cta-access-map)',
   } });
+  if (!r.ok) throw new Error(`Metra returned ${r.status}`);
+  return { ...parseFeed(new Uint8Array(await r.arrayBuffer())), fetched: new Date().toISOString() };
 }
 
 function parseFeed(buf) {

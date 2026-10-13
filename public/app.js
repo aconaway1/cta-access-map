@@ -274,8 +274,13 @@ function showMetra(){
   el.hidden = false;
   if(metraState !== 'ok'){ el.innerHTML = metraState === 'loading' ? '' : 'Metra accessibility alerts unavailable. Check metra.com before you travel.'; return; }
   const when = fmtTime(metraUpdated);
-  if(!METRA_ALERTS.length){ el.textContent = `No accessibility alerts in Metra's feed as of ${when}.`; return; }
-  el.innerHTML = `<details><summary>Metra accessibility alerts: ${METRA_ALERTS.length}, from Metra's feed as of ${esc(when)}</summary><ul>${
+  // The Worker refreshes Metra every 5 minutes with retries; a copy older than 30 minutes means Metra has been
+  // unreachable or blocking us for a while.
+  const old = Date.now() - Date.parse(metraUpdated) > 30*60*1000;
+  el.classList.toggle('warn', old);
+  const note = old ? ' (may be out of date; check metra.com)' : '';
+  if(!METRA_ALERTS.length){ el.textContent = `No accessibility alerts in Metra's feed as of ${when}${note}.`; return; }
+  el.innerHTML = `<details><summary>Metra accessibility alerts: ${METRA_ALERTS.length}, from Metra's feed as of ${esc(when)}${esc(note)}</summary><ul>${
     METRA_ALERTS.map(a=>`<li><span class="chips">${metraChips(a.routes)}</span>${esc(a.description || a.headers[0])}</li>`).join('')}</ul></details>`;
 }
 async function loadMetra(){
