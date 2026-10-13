@@ -1,6 +1,6 @@
-# CTA L access map
+# Step Free Chicago Transit
 
-Leaflet map of every CTA L station showing elevator access, line colors, Loop direction of travel, live elevator outages and step-free alternatives.
+Leaflet map of every CTA L station (plus the downtown Metra stations) showing elevator access, line colors, Loop direction of travel, live elevator outages and step-free alternatives.
 
 ## Layout
 

@@ -148,7 +148,7 @@ async function fetchOnce(env, meta = {}) {
   // Trimmed: a key pasted into the dashboard can carry whitespace. Sent as a header, never in the URL.
   const r = await fetch(SOURCE, { headers: {
     authorization: `Bearer ${env.METRA_API_TOKEN.trim()}`,
-    'user-agent': 'cta-access-map (+https://github.com/aconaway1/cta-access-map)',
+    'user-agent': 'step-free-chicago-transit (+https://github.com/aconaway1/step-free-chicago-transit)',
   } });
   meta.server = r.headers.get('server') || '';
   meta.ratelimit = ['limit', 'remaining', 'reset'].map(k => r.headers.get(`x-ratelimit-${k}`)).filter(v => v != null).join('/');

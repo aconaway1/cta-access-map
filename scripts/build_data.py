@@ -79,7 +79,7 @@ def track(route, d, pts, dash):
 def fetch(url, path):
     if not os.path.exists(path):
         print('downloading', url, file=sys.stderr)
-        req = urllib.request.Request(url, headers={'User-Agent': 'cta-access-map build script'})
+        req = urllib.request.Request(url, headers={'User-Agent': 'step-free-chicago-transit build script'})
         with urllib.request.urlopen(req) as r, open(path, 'wb') as f:
             f.write(r.read())
     return path

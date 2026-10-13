@@ -1,4 +1,4 @@
-// CTA L access map. Stations and outer track geometry come from public/cta-data.js (scripts/build_data.py);
+// Step Free Chicago Transit. Stations and outer track geometry come from public/cta-data.js (scripts/build_data.py);
 // downtown (Loop, West Loop, River North) is hand-maintained below and overrides the generated data.
 const COLOR = {red:'#C60C30',blue:'#00A1DE',brown:'#62361B',green:'#009B3A',orange:'#F9461C',pink:'#E27EA6',purple:'#522398',yellow:'#F9E300'};
 const LINE_NAME = {red:'Red',blue:'Blue',brown:'Brown',green:'Green',orange:'Orange',pink:'Pink',purple:'Purple',yellow:'Yellow'};
