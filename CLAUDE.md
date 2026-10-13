@@ -39,10 +39,11 @@ needs the workers.dev hostname registered in the Stadia dashboard. `wrangler.tom
 ## Status (2026-10-11): deployed, map and live alerts working in production
 
 Name (2026-10-13): "Step Free Chicago Transit" in titles and the repo (was "CTA L access map"; scope grew to Metra). The
-Worker, its workers.dev URL and the local folder are still `cta-access-map` (rename/custom domain undecided).
+Worker renamed the same day (a new Worker in Cloudflare; the old `cta-access-map` Worker was deleted, nobody used it
+yet). The local folder and the KV namespace title (`cta-access-map-cache`) keep the old name; custom domain undecided.
 
 GitHub: https://github.com/aconaway1/step-free-chicago-transit (public; the old cta-access-map URL redirects). Connected to a Cloudflare Worker via
-Workers Builds; live at https://cta-access-map.jaconaway1.workers.dev (domain registered with Stadia; tiles 401 on any other hostname).
+Workers Builds; live at https://step-free-chicago-transit.jaconaway1.workers.dev (domain registered with Stadia; tiles 401 on any other hostname).
 The first build failed ("Missing entry-point") because the repo was still Pages-shaped;
 converted to Workers static assets on 2026-10-11.
 If pushes stop triggering builds (no Cloudflare check on the GitHub commit), look for "This project is
