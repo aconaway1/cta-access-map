@@ -40,7 +40,8 @@ needs the workers.dev hostname registered in the Stadia dashboard. `wrangler.tom
 
 Name (2026-10-13): "Step Free Chicago Transit" in titles and the repo (was "CTA L access map"; scope grew to Metra). The
 Worker renamed the same day (a new Worker in Cloudflare; the old `cta-access-map` Worker was deleted, nobody used it
-yet). The local folder and the KV namespace title (`cta-access-map-cache`) keep the old name; custom domain undecided.
+yet). KV namespace retitled `step-free-chicago-transit-cache` (same ID). The local folder keeps the old name; custom domain
+undecided.
 
 GitHub: https://github.com/aconaway1/step-free-chicago-transit (public; the old cta-access-map URL redirects). Connected to a Cloudflare Worker via
 Workers Builds; live at https://step-free-chicago-transit.jaconaway1.workers.dev (domain registered with Stadia; tiles 401 on any other hostname).
@@ -194,7 +195,7 @@ Researched for the accessibility follow-up:
   Metra's own `updated` time kept). The page retries a failed first load after 30 s.
   Superseded Oct 12 evening (block rate reached ~50%): a Cron Trigger every 5 min (`[triggers]` in wrangler.toml)
   runs `refreshMetra()`, up to 4 tries 45 s apart, and stores the last good copy (plus `fetched`) in KV namespace
-  `cta-access-map-cache` (binding `CACHE`, id in wrangler.toml; not secret). `/api/metra-alerts` serves the KV
+  `step-free-chicago-transit-cache` (binding `CACHE`, id in wrangler.toml; not secret). `/api/metra-alerts` serves the KV
   copy; one live fetch only if KV is empty. Writes only on success (≤288/day, free plan allows 1,000). The page
   marks Metra data older than 30 min "may be out of date". Owner chose 5 min (fresh enough; 10 would compound
   blocked runs). Don't use the KV page's "Connect" button: bindings must live in wrangler.toml or deploys drop them.
