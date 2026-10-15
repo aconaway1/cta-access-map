@@ -30,7 +30,9 @@ Owner: Aaron (network engineer). Prefers direct, technically precise communicati
 - `src/metra.js` — `GET /api/metra-alerts` and `/api/metra-log.csv`; Metra GTFS-realtime alerts (protobuf → JSON) using the `METRA_API_TOKEN` secret
 - `src/elevators.js` — `GET /api/elevators`; proxies CTA Customer Alerts API
   (`accessibility=TRUE&activeonly=TRUE`, JSON, plus any alert in the full active feed whose headline/short names an
-  escalator), normalizes to `{updated, alerts:[{id,headline,short,stations:[{id,name}]}]}`, 120s cache
+  escalator), normalizes to `{updated, version:{id,at}, alerts:[{id,headline,short,stations:[{id,name}]}]}`, 120s cache.
+  `version` (CF_VERSION) drives the panel footer's "Version xxxxxxxx, <date>" (first 8 of the version ID, as on
+  /status); a later poll from another deploy adds "New version available, reload".
 - `README.md` — deploy and dev commands (`npx wrangler deploy`, `npx wrangler dev`)
 
 CDNs: Leaflet 1.9.4 (cdnjs), leaflet-polylinedecorator 1.6.0 (unpkg), Tabler icons webfont (jsdelivr).

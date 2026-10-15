@@ -318,6 +318,18 @@ async function loadMetra(){
   finally{ showMetra(); }
 }
 
+// Version: the deploy this page was loaded from, from the first alerts response (same deploy as the static files
+// if the page loaded then). A later response from a different deploy means the open page is out of date.
+let pageVersion = null;
+function showVersion(v){
+  if(!v || !v.id) return;
+  pageVersion = pageVersion || v;
+  const day = pageVersion.at ? `, ${new Date(pageVersion.at).toLocaleDateString([], {month:'short', day:'numeric'})}` : '';
+  const el = document.getElementById('version');
+  el.textContent = ` · Version ${pageVersion.id.slice(0,8)}${day}`;
+  if(v.id !== pageVersion.id) el.innerHTML += ' · <a href="">New version available, reload</a>';
+}
+
 async function loadAlerts(){
   loadMetra();
   try{
@@ -326,6 +338,7 @@ async function loadAlerts(){
     const j = await r.json();
     ALERTS = j.alerts || [];
     lastOk = Date.now();
+    showVersion(j.version);
     markers.forEach(({s,m})=> m.setIcon(iconFor(s)));
     nearbyKey = ''; renderNearby();  // outages change which nearby stations are usable
   }catch(e){ /* keep the last good alerts; showStatus flags them once stale */ }

@@ -8,7 +8,7 @@ const ESCALATOR = /escalator/i;
 
 const arr = x => x == null ? [] : Array.isArray(x) ? x : [x];
 
-export async function elevators() {
+export async function elevators(env) {
   try {
     const [r, all] = await Promise.all([get(SOURCE), get(ALL).catch(() => null)]);
     if (!r.ok) throw new Error(`CTA returned ${r.status}`);
@@ -27,7 +27,9 @@ export async function elevators() {
         .filter(s => s.ServiceType === 'T')
         .map(s => ({ id: s.ServiceId, name: s.ServiceName })),
     }));
-    return json({ updated: new Date().toISOString(), alerts }, 120);
+    // The deployed version (Worker and static files deploy together), for the page's version note.
+    const v = env.CF_VERSION;
+    return json({ updated: new Date().toISOString(), version: v ? { id: v.id, at: v.timestamp || null } : null, alerts }, 120);
   } catch (e) {
     return json({ error: String(e.message || e), alerts: [] }, 30, 502);
   }

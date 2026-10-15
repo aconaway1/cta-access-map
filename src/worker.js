@@ -7,7 +7,7 @@ import { status } from './status.js';
 export { RunLog } from './runlog.js';
 
 const ROUTES = {
-  '/api/elevators': () => elevators(),
+  '/api/elevators': env => elevators(env),
   '/api/metra-alerts': (env, ctx) => metraAlerts(env, ctx),
   '/api/metra-log.csv': env => metraLogCsv(env),
   '/api/status': env => status(env),
