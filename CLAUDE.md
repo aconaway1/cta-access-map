@@ -303,4 +303,6 @@ GraphQL `workersInvocationsScheduled` (scriptName shows `__unknown__` even when 
 ## Ideas not yet done
 
 - Pace buses as alternatives (suburban stations); flag bus/alt targets whose elevator is out.
+- Label the Metra lines on the map (owner's request, 2026-10-15): the key has one "Metra" swatch, and only popup
+  chips ("UP-NW") say which color is which line.
 - Subway extents beyond the downtown edges (Blue O'Hare branch near Logan Square, etc.) are drawn solid.
