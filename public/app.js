@@ -52,23 +52,29 @@ const OVERRIDE = Object.fromEntries(DOWNTOWN.map(s=>[s.id, s]));
 OVERRIDE[41400] = {ll:[41.8674,-87.6268]};
 const STATIONS = CTA_DATA.stations.map(s=>({...s, ...OVERRIDE[s.id]}));
 
-// Metra downtown stations, shown for transfers. k as for CTA ('y' elevator / 'n' not accessible), from Metra's
-// published elevator list (metra.com/elevatorsites, read Oct 11, 2026) and its Millennium closure notice; GTFS
-// marks all six wheelchair-accessible. Our reading of Metra's site, not licensed feed data, and labeled as such.
-// id = GTFS stop_id; ll and lines from Metra static GTFS (published 2026-10-03), except LaSalle Street:
-// its GTFS point sits on top of the CTA LaSalle stations, so it's moved south onto the platforms.
+// Metra stations: all of them from scripts/build_metra.py (METRA_DATA, Metra static GTFS), k = 'y' elevator (Metra's
+// published elevator list, metra.com/elevatorsites), 'a' accessible platform (GTFS wheelchair_boarding 1), 'u' not
+// marked accessible (GTFS 0, "no information"); fix = elevator although GTFS doesn't mark the station accessible.
+// The elevator list and our corrections are our reading of Metra's site, not licensed feed data, labeled as such.
+// METRA below: hand-maintained downtown entries, overriding generated ones by GTFS stop_id, field by field.
+// Millennium is 'n' while its only elevator is closed. LaSalle Street's GTFS point sits on top of the CTA LaSalle
+// stations, so it's moved south onto the platforms. The three terminals with elevators get no alternatives (alt:[]):
+// "next stop" down each line is no help for an alert like Union Station's Great Hall closures.
 const METRA_COLOR = {BNSF:['#29C233','#000'],HC:['#550E0C','#fff'],'MD-N':['#CC5500','#fff'],'MD-W':['#F1AD0E','#000'],
   ME:['#EB5C00','#fff'],NCS:['#9785BC','#fff'],RI:['#E02400','#fff'],SWS:['#0042A8','#fff'],
   'UP-N':['#008000','#fff'],'UP-NW':['#FFE600','#000'],'UP-W':['#FE8D81','#000']};
 const METRA = [
-  {id:'OTC',name:'Ogilvie (OTC)',ll:[41.8822,-87.6406],lines:['UP-N','UP-NW','UP-W'],side:'left',k:'y'},
-  {id:'CUS',name:'Union Station',ll:[41.8789,-87.6389],lines:['BNSF','HC','MD-N','MD-W','NCS','SWS'],side:'left',k:'y'},
-  {id:'LSS',name:'LaSalle Street',ll:[41.8745,-87.6322],lines:['RI'],side:'left',k:'y'},
+  {id:'OTC',name:'Ogilvie (OTC)',ll:[41.8822,-87.6406],lines:['UP-N','UP-NW','UP-W'],side:'left',k:'y',alt:[]},
+  {id:'CUS',name:'Union Station',ll:[41.8789,-87.6389],lines:['BNSF','HC','MD-N','MD-W','NCS','SWS'],side:'left',k:'y',alt:[]},
+  {id:'LSS',name:'LaSalle Street',ll:[41.8745,-87.6322],lines:['RI'],side:'left',k:'y',alt:[]},
   {id:'MILLENNIUM',name:'Millennium',ll:[41.8842,-87.6231],lines:['ME'],side:'right',k:'n',temp:true,
     note:'The only elevator (South Water St. entrance) is closed for replacement until winter 2026–27. Metra says to use Van Buren Street for elevator access.'},
   {id:'VANBUREN',name:'Van Buren Street',ll:[41.8769,-87.6231],lines:['ME'],side:'right',k:'y'},
   {id:'MUSEUM',name:'Museum Campus/11th St.',ll:[41.8686,-87.6214],lines:['ME'],side:'right',k:'y'},
 ];
+const METRA_STATIONS = METRA_DATA.stations.map(s=>({...s, ...(METRA.find(h=>h.id===s.id) || {})}));
+if(METRA_DATA.published) document.getElementById('metra-pub').textContent =
+  `, published ${new Date(METRA_DATA.published+'T12:00').toLocaleDateString([], {month:'short', day:'numeric', year:'numeric'})}`;
 
 // Track geometry. d = pixel offset to the right of the direction of travel (a number, or one per point);
 // a = draw direction arrows.
@@ -134,8 +140,16 @@ function offsetPath(latlngs, d){
 // Brown and Purple are too dark to read on the dark basemap, so they get a light casing there.
 const CASED = new Set(dark ? ['brown','purple'] : []);
 const trackLayer = L.layerGroup().addTo(map);
+// Metra draws under CTA as a double line (a thin stripe of the basemap color down the middle), so it doesn't read
+// as a CTA line of a similar color (UP-N and Green, Rock Island and Red). Side-by-side offsets come from the build.
+const STRIPE = dark ? '#2b2b2b' : '#f4f3f0';
 function drawTracks(){
   trackLayer.clearLayers();
+  METRA_DATA.lines.forEach(t=>{
+    const ll = offsetPath(t.p, t.d||0);
+    trackLayer.addLayer(L.polyline(ll,{color:METRA_COLOR[t.c][0], weight:4, opacity:0.9, lineJoin:'round', interactive:false}));
+    trackLayer.addLayer(L.polyline(ll,{color:STRIPE, weight:1.2, opacity:0.9, lineJoin:'round', interactive:false}));
+  });
   // Subways first so the elevated lines draw on top; casings before all lines so they never cover a neighbor.
   const order = [...TRACKS].sort((x,y)=>(y.dash?1:0)-(x.dash?1:0)).map(t=>({t, ll:offsetPath(t.p, t.d||0)}));
   order.filter(({t})=>CASED.has(t.c)).forEach(({t,ll})=>
@@ -218,25 +232,47 @@ function esc(t){return String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','
 // name alternate stations, e.g. "use Van Buren Station"). Text is shown verbatim, per Metra's license; the same
 // alert posted once per line is merged with its lines combined.
 const METRA_ACCESS = /elevator|escalator|\bramps?\b|\bADA\b|accessib|wheelchair/i;
+// Names an alert headline may use: hand aliases downtown; elsewhere the station name, and its part before " (" or
+// " - " ("75th St. (Grand Crossing)" -> "75th St."). Matched as whole words, ignoring punctuation, and only on
+// alerts for one of the station's lines (two Lake Forests, two Western Avenues).
 const METRA_NAMES = {OTC:['Ogilvie','OTC'], CUS:['Union Station','CUS'], LSS:['LaSalle Street','LaSalle St.'],
   MILLENNIUM:['Millennium','South Water'], VANBUREN:['Van Buren'], MUSEUM:['Museum Campus','11th St']};
+const words = t => ` ${t.toLowerCase().replace(/[.,']/g,'').replace(/[^a-z0-9]+/g,' ').trim()} `;
+function metraAliases(s){
+  if(METRA_NAMES[s.id]) return METRA_NAMES[s.id].map(words);
+  const n = s.name.replace(/ \([A-Z/-]+\)$/,'');   // repeated names carry their line: "Lake Forest (MD-N)"
+  return [...new Set([n, n.split(' (')[0], n.split(' - ')[0]].map(words))];
+}
 let METRA_ALERTS = [], metraUpdated = null, metraState = 'loading';
 const metraChips = ls => ls.filter(l=>METRA_COLOR[l]).map(l=>`<span class="chip" style="--c:${METRA_COLOR[l][0]};color:${METRA_COLOR[l][1]}">${l}</span>`).join('');
 function metraAlertsFor(s){
-  const names = (METRA_NAMES[s.id] || [s.name]).map(n=>n.toLowerCase());
-  return METRA_ALERTS.filter(a=>a.headers.some(h=>names.some(n=>h.toLowerCase().includes(n))));
+  const names = metraAliases(s);
+  return METRA_ALERTS.filter(a=>a.routes.some(r=>s.lines.includes(r)) && a.headers.some(h=>names.some(n=>words(h).includes(n))));
 }
+const METRA_STATUS = {y:'Elevator access', a:'Accessible platform', u:'Not marked accessible', n:'Not accessible'};
+const METRA_ICON = {y:'ti-elevator', a:'ti-wheelchair', u:'ti-help', n:'ti-stairs'};
+// Where each status comes from. Elevators: our reading of Metra's site; the rest: Metra's GTFS as published.
+const METRA_SOURCE = {
+  y: s => s.fix ? "Elevator per Metra's published elevator list. Metra's schedule data doesn't mark this station accessible; that's our correction."
+    : "Elevator per Metra's published elevator list.",
+  a: () => "Marked accessible in Metra's schedule data: no elevator, usually a level or ramped platform. Board at the accessible car.",
+  u: () => "Metra's schedule data doesn't mark this station accessible.",
+  n: () => '',
+};
 function metraPopup(s){
   const alerts = metraAlertsFor(s);
   const al = alerts.map(a=>`<div class="al">${esc(a.description || a.headers[0])}</div>`).join('');
-  const st = s.k === 'y' ? 'Elevator access' : s.temp ? 'Temporarily not accessible' : 'Not accessible';
+  const st = s.k === 'n' && s.temp ? 'Temporarily not accessible' : METRA_STATUS[s.k];
+  const show = (s.k === 'u' || s.k === 'n' || alerts.length) && s.alt && s.alt.length;
+  const alt = show ? `<div class="sec">Nearest accessible Metra stations</div><ul>${
+    s.alt.map(([n,d])=>`<li><b>${esc(n)}</b> <span class="d">${esc(d)}</span></li>`).join('')}</ul>` : '';
   return `<div class="pop"><h3>${esc(s.name)}</h3><div class="chips">${metraChips(s.lines)}</div>
     <div class="st ${s.k}">${st}</div>${s.note ? `<div class="note-p">${esc(s.note)}</div>` : ''}
     ${alerts.length ? `${al}<div class="tip">Alert from Metra's feed, updated ${fmtTime(metraUpdated)}.</div>` : ''}
-    <div class="tip">Metra station. Status from Metra's published elevator list (Oct 2026); check metra.com before you travel.</div></div>`;
+    ${alt}<div class="tip">Metra station. ${METRA_SOURCE[s.k](s)} Check metra.com before you travel.</div></div>`;
 }
 const metraIcon = (s, alert) => L.divIcon({className:'stn', iconSize:[24,24], iconAnchor:[12,12],
-  html:`<span class="dot m ${s.k}${alert?' alert':''}"><i class="ti ${s.k==='y'?'ti-elevator':'ti-train'}"></i></span>`});
+  html:`<span class="dot m ${s.k}${alert?' alert':''}"><i class="ti ${METRA_ICON[s.k]}"></i></span>`});
 
 // Station markers with name labels (labels shown at zoom 16+).
 const labeled = [];
@@ -249,14 +285,14 @@ function addStation(s, icon, popup, z){
   return m;
 }
 STATIONS.forEach(s=> markers.push({s, m:addStation(s, iconFor(s), ()=>popupFor(s), 1000)}));
-const metraMarkers = METRA.map(s=>({s, m:addStation(s, metraIcon(s, false), ()=>metraPopup(s), 900)}));
+const metraMarkers = METRA_STATIONS.map(s=>({s, m:addStation(s, metraIcon(s, false), ()=>metraPopup(s), 900)}));
 
 function updateLabels(){
   const z = map.getZoom(), show = z >= 16;
   labeled.forEach(m=> show ? m.openTooltip() : m.closeTooltip());
   // Shrink station markers when zoomed out to the whole system, so they don't pile up.
   const c = map.getContainer().classList;
-  c.toggle('z-far', z <= 12); c.toggle('z-mid', z === 13);
+  c.toggle('z-far', z <= 12); c.toggle('z-mid', z === 13); c.toggle('z-region', z <= 10);
 }
 map.on('zoomend', updateLabels);
 updateLabels();

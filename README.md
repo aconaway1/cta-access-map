@@ -10,7 +10,9 @@ public/                  static site (served by Workers static assets)
   style.css
   app.js                 downtown stations and tracks (hand-maintained), map, alert polling
   cta-data.js            generated: all stations + track geometry beyond downtown
+  metra-data.js          generated: all Metra stations + track geometry
 scripts/build_data.py    regenerates public/cta-data.js from the city L stops dataset and CTA GTFS
+scripts/build_metra.py   regenerates public/metra-data.js from Metra static GTFS
 src/worker.js            Worker entry: routes /api/elevators (static files never reach it)
 src/elevators.js         proxies and normalizes CTA accessibility alerts
 ```
@@ -21,6 +23,10 @@ src/elevators.js         proxies and normalizes CTA accessibility alerts
 GTFS into `.cache/` and rewrites `public/cta-data.js`. Run it when CTA opens, closes or renovates stations, check
 the "ADA mismatch" notes it prints, and commit the result. Accessibility comes from GTFS; downtown stations in
 `public/app.js` override the generated entries.
+
+`python3 scripts/build_metra.py` does the same for Metra from its static GTFS (re-downloaded when Metra publishes a
+new feed) and rewrites `public/metra-data.js`. Elevator stations come from a list in the script (Metra's elevator
+sites page); update it when Metra adds or removes elevators.
 
 ## Deploy (Cloudflare Workers with static assets, no build step)
 

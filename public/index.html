@@ -23,7 +23,12 @@
       <span class="k"><span class="dot n"><i class="ti ti-stairs"></i></span>Stairs only</span>
       <span class="k"><span class="dot c"><i class="ti ti-barrier-block"></i></span>Closed</span>
       <span class="k"><span class="dot y alert"><i class="ti ti-elevator"></i></span>Elevator out</span>
-      <span class="k"><span class="dot m y"><i class="ti ti-elevator"></i></span><span class="dot m n"><i class="ti ti-train"></i></span>Metra (square)</span>
+    </div>
+    <div class="row">
+      <span class="k">Metra (squares):</span>
+      <span class="k"><span class="dot m y"><i class="ti ti-elevator"></i></span>Elevator</span>
+      <span class="k"><span class="dot m a"><i class="ti ti-wheelchair"></i></span>Accessible platform</span>
+      <span class="k"><span class="dot m u"><i class="ti ti-help"></i></span>Not marked accessible</span>
     </div>
     <div class="row lines">
       <span class="k"><i class="sw" style="--c:#C60C30"></i>Red</span>
@@ -35,17 +40,19 @@
       <span class="k"><i class="sw cased" style="--c:#522398"></i>Purple</span>
       <span class="k"><i class="sw" style="--c:#F9E300"></i>Yellow</span>
       <span class="k"><i class="sw dash"></i>Subway</span>
+      <span class="k"><i class="sw metra" style="--c:#29C233"></i>Metra</span>
     </div>
     <p class="note">Loop: Brown runs counterclockwise (outer track). Orange, Pink and Purple run clockwise (inner track).</p>
     <p id="status" class="note">Checking live elevator alerts…</p>
     <div id="metra" class="note" hidden></div>
-    <p class="note">Not affiliated with CTA or Metra. Metra stations from Metra's GTFS schedule data, published Oct. 3, 2026. <a href="/status">Data status</a><span id="version"></span></p>
+    <p class="note">Not affiliated with CTA or Metra. Metra stations and tracks from Metra's GTFS schedule data<span id="metra-pub"></span>. <a href="/status">Data status</a><span id="version"></span></p>
   </div>
 </aside>
 <section id="nearby" class="nearby" hidden aria-live="polite" aria-label="Nearest stations with elevators"></section>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://unpkg.com/leaflet-polylinedecorator@1.6.0/dist/leaflet.polylineDecorator.js"></script>
 <script src="cta-data.js"></script>
+<script src="metra-data.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
