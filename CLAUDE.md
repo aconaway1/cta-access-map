@@ -29,7 +29,8 @@ Owner: Aaron (network engineer). Prefers direct, technically precise communicati
 - `src/runlog.js` — `RunLog` Durable Object: per-request log of Metra fetches (see Metra section)
 - `src/metra.js` — `GET /api/metra-alerts` and `/api/metra-log.csv`; Metra GTFS-realtime alerts (protobuf → JSON) using the `METRA_API_TOKEN` secret
 - `src/elevators.js` — `GET /api/elevators`; proxies CTA Customer Alerts API
-  (`accessibility=TRUE&activeonly=TRUE`, JSON), normalizes to `{updated, alerts:[{id,headline,short,stations:[{id,name}]}]}`, 120s cache
+  (`accessibility=TRUE&activeonly=TRUE`, JSON, plus any alert in the full active feed whose headline/short names an
+  escalator), normalizes to `{updated, alerts:[{id,headline,short,stations:[{id,name}]}]}`, 120s cache
 - `README.md` — deploy and dev commands (`npx wrangler deploy`, `npx wrangler dev`)
 
 CDNs: Leaflet 1.9.4 (cdnjs), leaflet-polylinedecorator 1.6.0 (unpkg), Tabler icons webfont (jsdelivr).
@@ -256,8 +257,28 @@ Researched for the accessibility follow-up:
   (~30 elevator sites), so "accessible" needs its own key entries.
 - GTFS change notice (Oct 2026): trip/service/shape ID formats changing; stop_id not mentioned.
 
+Escalators (2026-10-15): CTA's feed has no escalator category (impacts seen: "Elevator Status", reroutes, bus stop
+notes, planned work) and had no escalator alerts, active or planned, so the Worker also scans the full active feed
+for "escalator" in headline/short. Escalator-only alerts (escalator mentioned, elevator not) show their text in the
+popup but don't change step-free status: no orange badge, not in the status line, not skipped by the nearby card
+(`escalatorOnly`/`stepFreeAlerts` in app.js). Tested with a mocked alert only.
+
+Bus alternatives (2026-10-15): generated in build_data.py for every station outside downtown (shown under the same
+rule as `alt`). CTA bus stops within 0.2 mi straight line of the station point (0.12 missed cross-street stops; CTA
+stops are ~2 blocks apart); ride each bus trip pattern (shapes with ≥10 trips) to the first stop within 0.2 mi of a
+station with elevators at least 0.3 mi away (closer = walk), up to 3 mi. One row per route, directions nearest
+first: `['#53 Pulaski', 'north to Pulaski (Green), 0.8 mi; south to Pulaski (Pink), 1.5 mi']`, up to four routes.
+Hand downtown entries use the same format. CTA buses only (all CTA bus stops are `wheelchair_boarding=1`): no Pace,
+so Evanston (Main, Dempster, Noyes, South Blvd), Oak Park/Forest Park and a few others get none. Not alert-aware:
+a bus may point at a station whose elevator is out (same as `alt`).
+
+Cron trigger broke after the rename (2026-10-13 20:35 → 10-15 12:56 UTC): every scheduled run was `internalError`
+with 0 CPU and never reached the Worker (no `wrangler tail` event), though the schedule was registered. Fixed by
+`npx wrangler triggers deploy` (re-registers crons from wrangler.toml); the next run (13:00) got 200. Diagnose via
+GraphQL `workersInvocationsScheduled` (scriptName shows `__unknown__` even when healthy) or the cron rows in
+/api/metra-log.csv.
+
 ## Ideas not yet done
 
-- Show escalator outages too.
-- Bus alternatives outside downtown (only Grand/Chicago Blue and the Chicago stations have them).
+- Pace buses as alternatives (suburban stations); flag bus/alt targets whose elevator is out.
 - Subway extents beyond the downtown edges (Blue O'Hare branch near Logan Square, etc.) are drawn solid.

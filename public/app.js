@@ -6,7 +6,8 @@ const LIGHT_CHIP = new Set(['pink','yellow']);  // chips that need dark text
 
 // k: y = elevator, n = stairs only, c = closed. id = CTA station (map) ID used by the alerts feed.
 // match = station name as the alerts feed spells it, only where the name is unique systemwide.
-// alt = nearest stations with elevators as [name, detail]; bus = accessible bus options as [route, detail].
+// alt = nearest stations with elevators as [name, detail]; bus = accessible bus options as [route, detail], detail
+// "<direction> to <station>, <distance>" (generated outside downtown by scripts/build_data.py).
 // alt means "use this station instead", which works in either direction. Loop lines run one way, so Loop entries
 // give which lines stop there, never "next stop"; that wording is only used on two-way track (Red, Blue,
 // Green/Pink west of the Loop, Brown/Purple north), and at multi-line stations it names the line(s): "next stop
@@ -37,11 +38,11 @@ const DOWNTOWN = [
   {id:40350,name:'UIC-Halsted',match:'UIC-Halsted',ll:[41.8757,-87.6492],k:'y',lines:['blue'],side:'bottom',alt:[['Jackson (Blue)', '1.2 mi · 3 stops toward O’Hare'], ['Illinois Medical District', '1.3 mi · 2 stops toward Forest Park']]},
   // North of the river. No match names: Grand and Chicago each exist on several lines.
   {id:40460,name:'Merchandise Mart',match:'Merchandise Mart',ll:[41.8890,-87.6339],k:'y',lines:['brown','purple'],side:'left',alt:[['Clark/Lake', '0.4 mi · Brown, Purple'], ['Chicago (Brown/Purple)', '0.6 mi · Brown and Purple Lines, next stop north']]},
-  {id:40710,name:'Chicago (Brown/Purple)',ll:[41.8968,-87.6359],k:'y',lines:['brown','purple'],side:'left',alt:[['Merchandise Mart', '0.6 mi · Brown and Purple Lines, next stop south'], ['Sedgwick', '1.1 mi · Brown and Purple Lines, next stop north']],bus:[['#66 Chicago', 'east to Chicago (Red)']]},
+  {id:40710,name:'Chicago (Brown/Purple)',ll:[41.8968,-87.6359],k:'y',lines:['brown','purple'],side:'left',alt:[['Merchandise Mart', '0.6 mi · Brown and Purple Lines, next stop south'], ['Sedgwick', '1.1 mi · Brown and Purple Lines, next stop north']],bus:[['#66 Chicago', 'east to Chicago (Red), 0.4 mi']]},
   {id:40330,name:'Grand (Red)',ll:[41.8917,-87.6280],k:'y',lines:['red'],side:'right',alt:[['Chicago (Red)', '0.4 mi · next stop north'], ['Lake (Red)', '0.5 mi · next stop south']]},
-  {id:41450,name:'Chicago (Red)',ll:[41.8967,-87.6281],k:'y',lines:['red'],side:'right',alt:[['Grand (Red)', '0.4 mi · next stop south'], ['Clark/Division', '0.7 mi · next stop north']],bus:[['#66 Chicago', 'west to Chicago (Brown/Purple)']]},
-  {id:40490,name:'Grand (Blue)',ll:[41.8912,-87.6476],k:'n',lines:['blue'],side:'right',alt:[['Clark/Lake', '1.1 mi · next stop toward Forest Park'], ['Western (Blue, O’Hare branch)', '3.1 mi · 4 stops toward O’Hare']],bus:[['#56 Milwaukee', 'along Milwaukee Ave. to the Loop'], ['#65 Grand', 'east to Grand (Red)']]},
-  {id:41410,name:'Chicago (Blue)',ll:[41.8961,-87.6552],k:'n',lines:['blue'],side:'right',alt:[['Clark/Lake', '1.7 mi · 2 stops toward Forest Park'], ['Western (Blue, O’Hare branch)', '2.5 mi · 3 stops toward O’Hare']],bus:[['#56 Milwaukee', 'along Milwaukee Ave. to the Loop'], ['#66 Chicago', 'east to Chicago (Brown/Purple) and Chicago (Red)']]},
+  {id:41450,name:'Chicago (Red)',ll:[41.8967,-87.6281],k:'y',lines:['red'],side:'right',alt:[['Grand (Red)', '0.4 mi · next stop south'], ['Clark/Division', '0.7 mi · next stop north']],bus:[['#66 Chicago', 'west to Chicago (Brown/Purple), 0.4 mi']]},
+  {id:40490,name:'Grand (Blue)',ll:[41.8912,-87.6476],k:'n',lines:['blue'],side:'right',alt:[['Clark/Lake', '1.1 mi · next stop toward Forest Park'], ['Western (Blue, O’Hare branch)', '3.1 mi · 4 stops toward O’Hare']],bus:[['#56 Milwaukee', 'along Milwaukee Ave. to the Loop'], ['#65 Grand', 'east to Grand (Red), 1.0 mi']]},
+  {id:41410,name:'Chicago (Blue)',ll:[41.8961,-87.6552],k:'n',lines:['blue'],side:'right',alt:[['Clark/Lake', '1.7 mi · 2 stops toward Forest Park'], ['Western (Blue, O’Hare branch)', '2.5 mi · 3 stops toward O’Hare']],bus:[['#56 Milwaukee', 'along Milwaukee Ave. to the Loop'], ['#66 Chicago', 'east to Chicago (Brown/Purple), 1.0 mi, and Chicago (Red), 1.4 mi']]},
 ];
 
 // All stations: generated data, with downtown entries replacing their generated counterparts field by field.
@@ -155,6 +156,8 @@ const ICON = {y:'ti-elevator', n:'ti-stairs', c:'ti-barrier-block'};
 const STATUS = {y:'Elevator access', n:'No elevator: stairs only', c:'Closed for reconstruction', out:'Elevator out of service', alert:'Accessibility alert'};
 // Alerts like "The Howard-bound platform elevator..." cover one direction only.
 const ONE_PLATFORM = /-bound\b[^.]*platform elevator/i;
+// Escalator-only alerts are shown in popups but don't affect step-free status (marker, nearby card, status line).
+const escalatorOnly = a => { const t = `${a.headline} ${a.short}`; return /escalator/i.test(t) && !/elevator/i.test(t); };
 let ALERTS = [];
 const markers = [];
 
@@ -162,9 +165,10 @@ function alertsFor(s){
   const norm = x => String(x||'').toLowerCase().replace(/\s+/g,'');
   return ALERTS.filter(a => a.stations.some(x => String(x.id)===String(s.id) || (s.match && norm(x.name)===norm(s.match))));
 }
+const stepFreeAlerts = s => alertsFor(s).filter(a => !escalatorOnly(a));
 
 function iconFor(s){
-  const out = s.k==='y' && alertsFor(s).length > 0;
+  const out = s.k==='y' && stepFreeAlerts(s).length > 0;
   return L.divIcon({className:'stn', iconSize:[24,24], iconAnchor:[12,12],
     html:`<span class="dot ${s.k}${out?' alert':''}"><i class="ti ${ICON[s.k]}"></i></span>`});
 }
@@ -192,9 +196,9 @@ function alternatives(s){
 
 function popupFor(s){
   const chips = s.lines.map(l=>`<span class="chip${LIGHT_CHIP.has(l)?' lt':''}" style="--c:${COLOR[l]}">${LINE_NAME[l]}</span>`).join('');
-  const alerts = alertsFor(s), out = s.k==='y' && alerts.length > 0;
+  const alerts = alertsFor(s), blocking = stepFreeAlerts(s), out = s.k==='y' && blocking.length > 0;
   // The accessibility feed also carries alerts like "trains will not stop at 43rd"; only say elevator when it is one.
-  const st = !out ? s.k : alerts.some(a=>/elevator/i.test(`${a.headline} ${a.short}`)) ? 'out' : 'alert';
+  const st = !out ? s.k : blocking.some(a=>/elevator/i.test(`${a.headline} ${a.short}`)) ? 'out' : 'alert';
   const oneSide = out && alerts.some(a=>ONE_PLATFORM.test(`${a.headline} ${a.short}`));
   // The alert description already names the station and the elevator; the headline only repeats it.
   const al = alerts.map(a=>`<div class="al">${esc(a.short || a.headline)}</div>`).join('');
@@ -266,7 +270,7 @@ function showStatus(){
   if(!checked) return;
   const el = document.getElementById('status'), badge = document.getElementById('stale');
   const stale = Date.now() - lastOk > STALE_MS;
-  const hits = markers.filter(({s})=>s.k==='y' && alertsFor(s).length).map(({s})=>s.name);
+  const hits = markers.filter(({s})=>s.k==='y' && stepFreeAlerts(s).length).map(({s})=>s.name);
   el.textContent = !lastOk ? 'Live elevator alerts unavailable. Check transitchicago.com before you travel.'
     : stale ? `Elevator alerts haven't updated since ${fmtTime(lastOk)} and may be out of date. Check transitchicago.com before you travel.`
     : hits.length ? `Elevator alerts at ${fmtTime(lastOk)}: ${hits.join(', ')}.` : `No elevator alerts on this map as of ${fmtTime(lastOk)}.`;
@@ -372,7 +376,7 @@ let lastFix = null, nearbyKey = '', nearbyCollapsed = false;
 function renderNearby(){
   if(!locating || !lastFix){ nearbyEl.hidden = true; nearbyKey = ''; return; }
   const here = [lastFix.latlng.lat, lastFix.latlng.lng];
-  const cands = STATIONS.filter(s=>s.k==='y').map(s=>({s, d:walkMiles(here, s.ll), out:alertsFor(s).length > 0}));
+  const cands = STATIONS.filter(s=>s.k==='y').map(s=>({s, d:walkMiles(here, s.ll), out:stepFreeAlerts(s).length > 0}));
   const rows = new Map(), skipped = new Set();
   for(const line of Object.keys(LINE_NAME)){
     const onLine = cands.filter(x=>x.s.lines.includes(line)).sort((x,y)=>x.d-y.d);

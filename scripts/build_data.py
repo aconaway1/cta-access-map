@@ -174,18 +174,25 @@ def main():
             gtfs_ada.setdefault(int(r['parent_station']), set()).add(r['wheelchair_boarding'])
     # Accessibility from GTFS (all of a station's platforms wheelchair_boarding=1), else the dataset flag.
     accessible = lambda m: gtfs_ada[m] == {'1'} if m in gtfs_ada else all(groups[m]['ada'])
+    bus_route = {r['route_id']: r for r in rd('routes.txt') if r['route_type'] == '3'}
+    bus_ll = {r['stop_id']: (float(r['stop_lat']), float(r['stop_lon'])) for r in rd('stops.txt')
+              if r['location_type'] == '0' and not r['parent_station'] and int(r['stop_id']) < 30000}
     trips, count = {}, {}
     for t in rd('trips.txt'):
-        if t['route_id'] in ROUTE_COLOR:
+        if t['route_id'] in ROUTE_COLOR or t['route_id'] in bus_route:
             key = (t['route_id'], t['shape_id'])
             count[key] = count.get(key, 0) + 1
             trips.setdefault(key, t['trip_id'])
-    # Shapes run by at least a few trips a day (drops one-off yard moves).
-    rep = {tid: key for key, tid in trips.items() if count[key] >= 20}
-    seq = {}
+    # Shapes run by at least a few trips a day (drops one-off yard moves and short turns).
+    rep = {tid: key for key, tid in trips.items() if count[key] >= (20 if key[0] in ROUTE_COLOR else 10)}
+    seq, bus_seq = {}, {}
     for r in rd('stop_times.txt'):
-        if r['trip_id'] in rep and r['stop_id'] in parent:
+        if r['trip_id'] not in rep:
+            continue
+        if r['stop_id'] in parent:
             seq.setdefault(r['trip_id'], []).append((int(r['stop_sequence']), parent[r['stop_id']]))
+        elif r['stop_id'] in bus_ll:
+            bus_seq.setdefault(r['trip_id'], []).append((int(r['stop_sequence']), r['stop_id']))
     patterns = {}
     for tid, s in seq.items():
         stops = [p for _, p in sorted(s)]
@@ -193,14 +200,15 @@ def main():
         patterns[tid] = (ROUTE_COLOR[rep[tid][0]], stops)
 
     shapes = {}
-    want = {key[1] for key in rep.values()}
+    rail = sorted({key for key in rep.values() if key[0] in ROUTE_COLOR})
+    want = {key[1] for key in rail}
     for r in rd('shapes.txt'):
         if r['shape_id'] in want:
             shapes.setdefault(r['shape_id'], []).append((int(r['shape_pt_sequence']), float(r['shape_pt_lat']), float(r['shape_pt_lon'])))
 
     # Track pieces outside downtown, oriented outward, deduplicated by endpoints.
     pieces = []
-    for (route_id, shape_id) in sorted(set(rep.values())):
+    for (route_id, shape_id) in rail:
         route = ROUTE_COLOR[route_id]
         pts = [(la, lo) for _, la, lo in sorted(shapes[shape_id])]
         run, prev = [], None
@@ -257,6 +265,38 @@ def main():
                         best[n]['lines'].add(line)
                     break
 
+    # Bus alternatives outside downtown: CTA bus routes (all accessible) that stop near the station and, riding
+    # on, stop near a station with elevators at least BUS_MIN away (closer than that, walking is the alternative).
+    # The first such station in each direction, within BUS_MAX of the start.
+    BUS_NEAR, BUS_MIN, BUS_MAX = 0.2, 0.3, 3.0
+    near = {}
+    for sid, ll in bus_ll.items():
+        ms = [m for m, g in groups.items() if math.hypot((ll[0] - g['ll'][0]) * 69.05, (ll[1] - g['ll'][1]) * 51.45) <= BUS_NEAR]
+        if ms:
+            near[sid] = ms
+    buses = {}   # station -> route -> direction -> (miles, station)
+    for tid, s in bus_seq.items():
+        route = rep[tid][0]
+        stops = [sid for _, sid in sorted(s)]
+        for i, sid in enumerate(stops):
+            for m in near.get(sid, []):
+                if m in downtown or m in closed:
+                    continue
+                for nxt in stops[i + 1:]:
+                    if miles(groups[m]['ll'], bus_ll[nxt]) > BUS_MAX:
+                        break
+                    hit = [n for n in near.get(nxt, []) if usable(n) and n != m and miles(groups[m]['ll'], groups[n]['ll']) >= BUS_MIN]
+                    if hit:
+                        n = min(hit, key=lambda n: miles(bus_ll[nxt], groups[n]['ll']))
+                        d = miles(groups[m]['ll'], groups[n]['ll'])
+                        if d > BUS_MAX:
+                            break
+                        dirs = buses.setdefault(m, {}).setdefault(route, {})
+                        where = compass(groups[m]['ll'], groups[n]['ll'])
+                        if where not in dirs or d < dirs[where][0]:
+                            dirs[where] = (d, n)
+                        break
+
     stations = []
     for mid, g in sorted(groups.items()):
         s = {'id': mid, 'name': names[mid], 'll': [round(g['ll'][0], 5), round(g['ll'][1], 5)],
@@ -276,6 +316,15 @@ def main():
                 rows_.append((d, [names[n], f"{d:.1f} mi · {on}{hop} {where}"]))
             # Up to six: one per line and direction at three-line stations like Roosevelt.
             s['alt'] = [r for _, r in sorted(rows_)][:6]
+        if mid in buses:
+            # Up to four routes, those reaching an elevator soonest first; each lists its directions, nearest first.
+            rows_ = []
+            for route, dirs in buses[mid].items():
+                ds = sorted((d, where, n) for where, (d, n) in dirs.items())
+                r = bus_route[route]
+                rows_.append((ds[0][0], [f"#{r['route_short_name']} {r['route_long_name']}",
+                                         '; '.join(f"{where} to {names[n]}, {d:.1f} mi" for d, where, n in ds)]))
+            s['bus'] = [r for _, r in sorted(rows_)][:4]
         stations.append(s)
 
     # Report where the dataset's ADA flag disagrees with GTFS (GTFS is used) so the downtown overrides in app.js
