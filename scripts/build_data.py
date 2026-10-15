@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Build public/cta-data.js: every CTA 'L' station plus track geometry outside the hand-drawn downtown area.
 
-Sources (both public, no key):
+Sources (all public, no key):
   - City of Chicago L stops dataset (8pix-ypme): station map IDs, names, lines, coordinates.
   - CTA GTFS (google_transit.zip): accessibility (platform wheelchair_boarding), route shapes for track
     geometry, and stop order per trip pattern for the step-free alternatives of stations outside downtown.
     GTFS wins on accessibility: the city dataset lagged CTA renovations (Racine, Austin Green) in Oct 2026.
+  - Pace GTFS: suburban bus routes, for bus alternatives next to CTA bus routes (every Pace trip is
+    wheelchair_accessible 1). Its license allows use and redistribution "to assist you with mass transportation".
 
 Downtown (the Loop, West Loop, River North) stays hand-maintained in public/app.js: its stations override
 these by map ID, and its tracks are drawn from TRACKS there. This script never touches app.js.
@@ -16,6 +18,7 @@ import argparse, csv, io, json, math, os, re, sys, urllib.request, zipfile
 from datetime import date
 
 GTFS_URL = 'https://www.transitchicago.com/downloads/sch_data/google_transit.zip'
+PACE_URL = 'https://www.pacebus.com/gtfsdownload'   # redirects to the current feed
 STOPS_URL = 'https://data.cityofchicago.org/resource/8pix-ypme.json?$limit=1000'
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, 'public', 'cta-data.js')
@@ -38,10 +41,13 @@ def keep_point(route, lat, lon):
         'pink':   lon < -87.6720 or (lat < 41.8848 and lon < -87.66),   # branch leaves Lake St. at Paulina
     }[route]
 
-# Subway stretches just beyond downtown, drawn dashed like the downtown subways.
+# Subway stretches beyond downtown, drawn dashed like the downtown subways. Portal positions from OpenStreetMap
+# (tunnel=yes ways, read 2026-10-15).
 def subway(route, lat, lon):
-    return {'red': 41.9005 < lat < 41.9135 or 41.8605 < lat < 41.8673,   # portals north of North/Clybourn, near 15th
-            'blue': 41.9000 < lat < 41.9065 and lon > -87.6720}.get(route, False)   # Division (Blue) is underground
+    return {'red': 41.9005 < lat < 41.9141 or 41.8596 < lat < 41.8673,   # portals north of North/Clybourn, near 16th
+            'blue': (41.9000 < lat < 41.9065 and lon > -87.6700)          # Division, portal at Ashland/Milwaukee
+                    or (41.9277 < lat < 41.9421 and lon < -87.7040)       # Logan Square, Milwaukee Ave. to the Kennedy
+                    or (lat > 41.97 and lon < -87.8956)}.get(route, False)   # O'Hare, under the airport
 
 
 def crossing(route, a, b, pred):
@@ -113,6 +119,29 @@ def rdp(pts, eps):
     if dmax > eps:
         return rdp(pts[:idx + 1], eps)[:-1] + rdp(pts[idx:], eps)
     return [pts[0], pts[-1]]
+
+
+def pace_buses(cache):
+    """Pace bus trip patterns (route label, stop IDs) and stop positions. Stop IDs get a 'P' prefix so they never
+    collide with CTA's. Commuter expresses ("... Express": rush hours, often one way) are left out."""
+    z = zipfile.ZipFile(fetch(PACE_URL, os.path.join(cache, 'pace_gtfs.zip')))
+    rd = lambda n: csv.DictReader(io.TextIOWrapper(z.open(n), encoding='utf-8-sig'))
+    # Labeled "Suburban bus 213 Green Bay Road": Pace's license bars using the Pace name without written consent.
+    label = {r['route_id']: ' '.join(x for x in ('Suburban bus', r['route_short_name'], r['route_long_name']) if x)
+             for r in rd('routes.txt') if r['route_type'] == '3' and 'Express' not in r['route_long_name']}
+    ll = {'P' + r['stop_id']: (float(r['stop_lat']), float(r['stop_lon'])) for r in rd('stops.txt')}
+    trips, count = {}, {}
+    for t in rd('trips.txt'):
+        if t['route_id'] in label:
+            key = (t['route_id'], t['shape_id'])
+            count[key] = count.get(key, 0) + 1
+            trips.setdefault(key, t['trip_id'])
+    rep = {tid: key[0] for key, tid in trips.items() if count[key] >= 10}
+    seq = {}
+    for r in rd('stop_times.txt'):
+        if r['trip_id'] in rep:
+            seq.setdefault(r['trip_id'], []).append((int(r['stop_sequence']), 'P' + r['stop_id']))
+    return [(label[rep[tid]], [sid for _, sid in sorted(s)]) for tid, s in seq.items()], ll
 
 
 def station_names(groups):
@@ -265,19 +294,22 @@ def main():
                         best[n]['lines'].add(line)
                     break
 
-    # Bus alternatives outside downtown: CTA bus routes (all accessible) that stop near the station and, riding
-    # on, stop near a station with elevators at least BUS_MIN away (closer than that, walking is the alternative).
-    # The first such station in each direction, within BUS_MAX of the start.
+    # Bus alternatives outside downtown: CTA and Pace bus routes (all accessible) that stop near the station and,
+    # riding on, stop near a station with elevators at least BUS_MIN away (closer than that, walking is the
+    # alternative). The first such station in each direction, within BUS_MAX of the start.
     BUS_NEAR, BUS_MIN, BUS_MAX = 0.2, 0.3, 3.0
+    bus_patterns = [(f"#{bus_route[rep[tid][0]]['route_short_name']} {bus_route[rep[tid][0]]['route_long_name']}",
+                     [sid for _, sid in sorted(s)]) for tid, s in bus_seq.items()]
+    pace_patterns, pace_ll = pace_buses(args.cache)
+    bus_patterns += pace_patterns
+    bus_ll.update(pace_ll)
     near = {}
     for sid, ll in bus_ll.items():
         ms = [m for m, g in groups.items() if math.hypot((ll[0] - g['ll'][0]) * 69.05, (ll[1] - g['ll'][1]) * 51.45) <= BUS_NEAR]
         if ms:
             near[sid] = ms
     buses = {}   # station -> route -> direction -> (miles, station)
-    for tid, s in bus_seq.items():
-        route = rep[tid][0]
-        stops = [sid for _, sid in sorted(s)]
+    for route, stops in bus_patterns:
         for i, sid in enumerate(stops):
             for m in near.get(sid, []):
                 if m in downtown or m in closed:
@@ -321,9 +353,7 @@ def main():
             rows_ = []
             for route, dirs in buses[mid].items():
                 ds = sorted((d, where, n) for where, (d, n) in dirs.items())
-                r = bus_route[route]
-                rows_.append((ds[0][0], [f"#{r['route_short_name']} {r['route_long_name']}",
-                                         '; '.join(f"{where} to {names[n]}, {d:.1f} mi" for d, where, n in ds)]))
+                rows_.append((ds[0][0], [route, '; '.join(f"{where} to {names[n]}, {d:.1f} mi" for d, where, n in ds)]))
             s['bus'] = [r for _, r in sorted(rows_)][:4]
         stations.append(s)
 

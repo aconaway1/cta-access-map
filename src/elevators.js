@@ -27,9 +27,10 @@ export async function elevators(env) {
         .filter(s => s.ServiceType === 'T')
         .map(s => ({ id: s.ServiceId, name: s.ServiceName })),
     }));
-    // The deployed version (Worker and static files deploy together), for the page's version note.
+    // The deployed version (Worker and static files deploy together), for the page's version note. tag = the commit
+    // it was built from, set by scripts/deploy.sh.
     const v = env.CF_VERSION;
-    return json({ updated: new Date().toISOString(), version: v ? { id: v.id, at: v.timestamp || null } : null, alerts }, 120);
+    return json({ updated: new Date().toISOString(), version: v ? { id: v.id, tag: v.tag || null, at: v.timestamp || null } : null, alerts }, 120);
   } catch (e) {
     return json({ error: String(e.message || e), alerts: [] }, 30, 502);
   }

@@ -86,8 +86,9 @@ const N_BRANCH=[[41.9005,-87.6366],[41.8975,-87.6366],[41.8965,-87.6357],[41.890
 const CW=[NW,NE,SE,SW,NW], CCW=[NW,SW,SE,NE,NW];
 const TRACKS = [
   {c:'red', p:[[41.9005,-87.6283],[41.8917,-87.6280],[41.8673,-87.6274]], dash:true},
-  {c:'blue', p:[[41.8756,-87.6720],[41.8756,-87.6440]]},
-  {c:'blue', p:[[41.8756,-87.6440],[41.8757,-87.6294],[41.8857,-87.6294],[41.8857,-87.6390],[41.8890,-87.6440],[41.8912,-87.6476],[41.8961,-87.6552],[41.9000,-87.6613]], dash:true},
+  // Congress portal west of Clinton at -87.6466 (OpenStreetMap).
+  {c:'blue', p:[[41.8756,-87.6720],[41.8756,-87.6466]]},
+  {c:'blue', p:[[41.8756,-87.6466],[41.8757,-87.6294],[41.8857,-87.6294],[41.8857,-87.6390],[41.8890,-87.6440],[41.8912,-87.6476],[41.8961,-87.6552],[41.9000,-87.6613]], dash:true},
   {c:'brown', p:N_BRANCH, d:4},
   {c:'purple', p:N_BRANCH, d:-14},
   {c:'pink', p:[[41.8852,-87.6701],NW], d:4},  // west end meets the generated Pink branch at Paulina
@@ -245,6 +246,8 @@ function metraAliases(s){
 }
 let METRA_ALERTS = [], metraUpdated = null, metraState = 'loading';
 const metraChips = ls => ls.filter(l=>METRA_COLOR[l]).map(l=>`<span class="chip" style="--c:${METRA_COLOR[l][0]};color:${METRA_COLOR[l][1]}">${l}</span>`).join('');
+document.querySelector('#metra-lines .row').innerHTML = Object.entries(METRA_DATA.routes)
+  .map(([id,name])=>`<span class="k">${metraChips([id])}${esc(name)}</span>`).join('');
 function metraAlertsFor(s){
   const names = metraAliases(s);
   return METRA_ALERTS.filter(a=>a.routes.some(r=>s.lines.includes(r)) && a.headers.some(h=>names.some(n=>words(h).includes(n))));
@@ -287,9 +290,15 @@ function addStation(s, icon, popup, z){
 STATIONS.forEach(s=> markers.push({s, m:addStation(s, iconFor(s), ()=>popupFor(s), 1000)}));
 const metraMarkers = METRA_STATIONS.map(s=>({s, m:addStation(s, metraIcon(s, false), ()=>metraPopup(s), 900)}));
 
+// Metra line labels (scripts/build_metra.py): on stretches where a line runs alone, clear of stations. One per line
+// at every zoom (mid-line), the rest (about every 8 miles, branches included) from zoom 11.
+const metraLabels = METRA_DATA.labels.map(l=>({l, t:L.tooltip({permanent:true, direction:'center', className:'mline', interactive:false})
+  .setLatLng(l.ll).setContent(`<span style="--c:${METRA_COLOR[l.c][0]};color:${METRA_COLOR[l.c][1]}">${l.c}</span>`)}));
+
 function updateLabels(){
   const z = map.getZoom(), show = z >= 16;
   labeled.forEach(m=> show ? m.openTooltip() : m.closeTooltip());
+  metraLabels.forEach(({l,t})=>{ const on = z >= l.z; if(on !== map.hasLayer(t)) on ? t.addTo(map) : t.remove(); });
   // Shrink station markers when zoomed out to the whole system, so they don't pile up.
   const c = map.getContainer().classList;
   c.toggle('z-far', z <= 12); c.toggle('z-mid', z === 13); c.toggle('z-region', z <= 10);
@@ -346,6 +355,7 @@ async function loadMetra(){
     metraUpdated = j.updated;
     metraState = 'ok';
     metraMarkers.forEach(({s,m})=> m.setIcon(metraIcon(s, metraAlertsFor(s).length > 0)));
+    nearbyKey = ''; renderNearby();
   }catch(e){
     // Keep the last good list if there is one. Metra's firewall refuses some requests in ~30 s runs, so if the
     // first load fails, try again shortly instead of showing "unavailable" until the next 5-minute poll.
@@ -357,12 +367,20 @@ async function loadMetra(){
 // Version: the deploy this page was loaded from, from the first alerts response (same deploy as the static files
 // if the page loaded then). A later response from a different deploy means the open page is out of date.
 let pageVersion = null;
+// The version tag is the commit it was deployed from (scripts/deploy.sh): "1a2b3c4d5e6f", or "...-dirty" for a local
+// deploy with uncommitted changes, which gets no link.
+const REPO = 'https://github.com/aconaway1/step-free-chicago-transit';
+function commitLink(tag){
+  const m = /^([0-9a-f]{7,40})(-dirty)?$/.exec(tag || '');
+  if(!m) return '';
+  return m[2] ? ` (commit ${m[1].slice(0,7)}, modified)` : ` (commit <a href="${REPO}/commit/${m[1]}">${m[1].slice(0,7)}</a>)`;
+}
 function showVersion(v){
   if(!v || !v.id) return;
   pageVersion = pageVersion || v;
   const day = pageVersion.at ? `, ${new Date(pageVersion.at).toLocaleDateString([], {month:'short', day:'numeric'})}` : '';
   const el = document.getElementById('version');
-  el.textContent = ` · Version ${pageVersion.id.slice(0,8)}${day}`;
+  el.innerHTML = ` · Version ${esc(pageVersion.id.slice(0,8))}${commitLink(pageVersion.tag)}${esc(day)}`;
   if(v.id !== pageVersion.id) el.innerHTML += ' · <a href="">New version available, reload</a>';
 }
 
@@ -418,16 +436,18 @@ function setLocating(on){
 
 // Closest station with an elevator on each line to the user's position, skipping any with an active alert.
 // A station that's closest for several lines (Clark/Lake downtown) gets one row tagged with those lines.
+// Metra gets its own list: the closest step-free station (elevator or accessible platform) on each Metra line within
+// METRA_NEAR miles, skipping stations with an accessibility alert in Metra's feed (Metra lines reach 60 miles out,
+// so an uncapped list would mostly be far-off stations).
 // Computed here from station coordinates; the position never leaves the browser. Distances are estimates
 // (walkMiles), not routed walking or wheelchair paths.
+const METRA_NEAR = 3;
 const nearbyEl = document.getElementById('nearby');
 let lastFix = null, nearbyKey = '', nearbyCollapsed = false;
-function renderNearby(){
-  if(!locating || !lastFix){ nearbyEl.hidden = true; nearbyKey = ''; return; }
-  const here = [lastFix.latlng.lat, lastFix.latlng.lng];
-  const cands = STATIONS.filter(s=>s.k==='y').map(s=>({s, d:walkMiles(here, s.ll), out:stepFreeAlerts(s).length > 0}));
+function closestByLine(here, stations, lines, out, max = Infinity){
+  const cands = stations.map(s=>({s, d:walkMiles(here, s.ll), out:out(s)})).filter(x=>x.d <= max);
   const rows = new Map(), skipped = new Set();
-  for(const line of Object.keys(LINE_NAME)){
+  for(const line of lines){
     const onLine = cands.filter(x=>x.s.lines.includes(line)).sort((x,y)=>x.d-y.d);
     const pick = onLine.find(x=>!x.out);
     if(!pick) continue;
@@ -435,28 +455,41 @@ function renderNearby(){
     if(!rows.has(pick.s.id)) rows.set(pick.s.id, {...pick, lines:[]});
     rows.get(pick.s.id).lines.push(line);
   }
-  const shown = [...rows.values()].sort((x,y)=>x.d-y.d);
+  return {shown:[...rows.values()].sort((x,y)=>x.d-y.d), skipped};
+}
+function renderNearby(){
+  if(!locating || !lastFix){ nearbyEl.hidden = true; nearbyKey = ''; return; }
+  const here = [lastFix.latlng.lat, lastFix.latlng.lng];
+  const cta = closestByLine(here, STATIONS.filter(s=>s.k==='y'), Object.keys(LINE_NAME), s=>stepFreeAlerts(s).length > 0);
+  const metra = closestByLine(here, METRA_STATIONS.filter(s=>s.k==='y' || s.k==='a'), Object.keys(METRA_DATA.routes),
+    s=>metraAlertsFor(s).length > 0, METRA_NEAR);
   const rough = lastFix.accuracy > 500;
   // Redraw only when what's shown changes, so the card doesn't flicker while walking.
-  const key = [shown.map(x=>`${x.s.id}:${x.d.toFixed(1)}:${x.lines}`), [...skipped], rough, nearbyCollapsed].join('|');
+  const key = [cta, metra].flatMap(r=>[r.shown.map(x=>`${x.s.id}:${x.d.toFixed(1)}:${x.lines}`), [...r.skipped]])
+    .concat([rough, nearbyCollapsed]).join('|');
   if(key === nearbyKey) return;
   nearbyKey = key;
   const fmt = d => d < 0.1 ? 'under 0.1 mi' : `${d.toFixed(1)} mi`;
   const chips = ls => ls.map(l=>`<span class="chip${LIGHT_CHIP.has(l)?' lt':''}" style="--c:${COLOR[l]}">${LINE_NAME[l]}</span>`).join('');
+  const row = (x, kind, ch, extra = '') =>
+    `<li><button type="button" data-${kind}="${esc(x.s.id)}"><span class="r1"><b>${esc(x.s.name)}</b> <span class="d">${fmt(x.d)}${extra}</span></span><span class="chips">${ch(x.lines)}</span></button></li>`;
+  const skip = (set, why) => set.size ? `<div class="tip">Skipped (${why}): ${[...set].map(esc).join(', ')}</div>` : '';
   nearbyEl.classList.toggle('collapsed', nearbyCollapsed);
   nearbyEl.innerHTML = `<div class="head"><div class="sec">Closest station with an elevator, by line</div>
       <button type="button" class="tog" aria-expanded="${!nearbyCollapsed}" aria-label="${nearbyCollapsed?'Expand':'Collapse'} nearest stations"><i class="ti ti-chevron-down"></i></button></div>
-    <div class="body"><ul>${shown.map(x=>
-      `<li><button type="button" data-id="${x.s.id}"><span class="r1"><b>${esc(x.s.name)}</b> <span class="d">${fmt(x.d)}</span></span><span class="chips">${chips(x.lines)}</span></button></li>`).join('')}</ul>`
-    + (skipped.size ? `<div class="tip">Skipped (elevator alert): ${[...skipped].map(esc).join(', ')}</div>` : '')
+    <div class="body"><ul>${cta.shown.map(x=>row(x, 'id', chips)).join('')}</ul>`
+    + skip(cta.skipped, 'elevator alert')
+    + (metra.shown.length || metra.skipped.size ? `<div class="sec sub">Metra, closest step-free station by line (within ${METRA_NEAR} mi)</div>
+      <ul>${metra.shown.map(x=>row(x, 'metra', metraChips, x.s.k==='y' ? ' · elevator' : ' · accessible platform')).join('')}</ul>`
+      + skip(metra.skipped, "alert in Metra's feed") : '')
     + `<div class="tip">${rough ? `Your location is only accurate to about ${Math.round(lastFix.accuracy)} m, so these are rough. ` : ''}Distances are estimates, not routes.</div></div>`;
   nearbyEl.hidden = false;
 }
 nearbyEl.addEventListener('click', e=>{
   if(e.target.closest('.tog')){ nearbyCollapsed = !nearbyCollapsed; renderNearby(); return; }
-  const b = e.target.closest('button[data-id]');
+  const b = e.target.closest('button[data-id], button[data-metra]');
   if(!b) return;
-  const hit = markers.find(({s})=>String(s.id)===b.dataset.id);
+  const hit = b.dataset.id ? markers.find(({s})=>String(s.id)===b.dataset.id) : metraMarkers.find(({s})=>s.id===b.dataset.metra);
   if(hit){ map.setView(hit.s.ll, Math.max(map.getZoom(), 15)); hit.m.openPopup(); }
 });
 

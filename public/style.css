@@ -67,6 +67,13 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:14px/1.
 .nearby .d{color:var(--muted)}
 .nearby .chips{margin:0;gap:3px}
 .nearby .chip{font-size:10.5px;padding:0 5px}
+.nearby .sec.sub{margin-top:8px}
+/* Metra line key and the line labels on the map. */
+#metra-lines summary{cursor:pointer}
+#metra-lines .row{margin-top:6px;gap:4px 10px}
+#metra-lines .chip{font-size:10px;padding:0 4px}
+.leaflet-tooltip.mline{background:none;border:0;box-shadow:none;padding:0}
+.mline span{display:block;padding:0 4px;border-radius:3px;font:600 10.5px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--c);box-shadow:0 0 0 1.5px var(--bg)}
 /* Metra accessibility alerts list in the panel. */
 #metra[hidden]{display:none}
 #metra summary{cursor:pointer}

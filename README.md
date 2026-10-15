@@ -19,8 +19,8 @@ src/elevators.js         proxies and normalizes CTA accessibility alerts
 
 ## Station data
 
-`python3 scripts/build_data.py` (Python 3, standard library only) downloads the city's L stops dataset and CTA's
-GTFS into `.cache/` and rewrites `public/cta-data.js`. Run it when CTA opens, closes or renovates stations, check
+`python3 scripts/build_data.py` (Python 3, standard library only) downloads the city's L stops dataset, CTA's
+GTFS and Pace's GTFS (suburban bus alternatives) into `.cache/` and rewrites `public/cta-data.js`. Run it when CTA opens, closes or renovates stations, check
 the "ADA mismatch" notes it prints, and commit the result. Accessibility comes from GTFS; downtown stations in
 `public/app.js` override the generated entries.
 
@@ -30,8 +30,9 @@ sites page); update it when Metra adds or removes elevators.
 
 ## Deploy (Cloudflare Workers with static assets, no build step)
 
-The repo is connected to a Cloudflare Worker (Workers Builds): pushes to `main` run `npx wrangler deploy`.
-Manual deploy: `npx wrangler deploy`. Local dev: `npx wrangler dev` (serves on :8787 with the API).
+The repo is connected to a Cloudflare Worker (Workers Builds): pushes to `main` run the deploy command, which should
+be `sh scripts/deploy.sh` (Settings → Builds → Deploy command). It runs `npx wrangler deploy --tag <commit>`, so the
+page footer and /status show the commit each version was built from. Manual deploy: `sh scripts/deploy.sh`. Local dev: `npx wrangler dev` (serves on :8787 with the API).
 
 `wrangler.toml` sets the Worker name, entry point, assets directory (`public`) and compatibility date. The
 Worker name in the Cloudflare dashboard must match `name` there.
